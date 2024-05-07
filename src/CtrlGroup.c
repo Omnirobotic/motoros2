@@ -4,66 +4,24 @@
 // SPDX-FileCopyrightText: 2022-2023, Delft University of Technology
 //
 // SPDX-License-Identifier: Apache-2.0
+#include "CtrlGroup.h"
 
-#include "MotoROS.h"
+#include "CmosParameterExtraction.h"
+#include "ControllerStatusIO.h"
+#include "ErrorHandling.h"
+#include "MathConstants.h"
+#include "MotionControl.h"
+#include "ConfigFile.h"
+#include "MotoROS_PlatformLib.h"
 
-const char* Ros_CtrlGroup_GRP_ID_String[] =
-{
-    "r1",
-    "r2",
-    "r3",
-    "r4",
-    "r5",
-    "r6",
-    "r7",
-    "r8",
+const char* Ros_CtrlGroup_GRP_ID_String[] = {
+        "r1",  "r2",  "r3",  "r4",  "r5",  "r6",  "r7",  "r8",
 
-    "b1",
-    "b2",
-    "b3",
-    "b4",
-    "b5",
-    "b6",
-    "b7",
-    "b8",
+        "b1",  "b2",  "b3",  "b4",  "b5",  "b6",  "b7",  "b8",
 
-    "s1",
-    "s2",
-    "s3",
-    "s4",
-    "s5",
-    "s6",
-    "s7",
-    "s8",
-    "s9",
-    "s10",
-    "s11",
-    "s12",
-    "s13",
-    "s14",
-    "s15",
-    "s16",
-    "s17",
-    "s18",
-    "s19",
-    "s20",
-    "s21",
-    "s22",
-    "s23",
-    "s24",
+        "s1",  "s2",  "s3",  "s4",  "s5",  "s6",  "s7",  "s8",  "s9",  "s10", "s11", "s12",
+        "s13", "s14", "s15", "s16", "s17", "s18", "s19", "s20", "s21", "s22", "s23", "s24",
 };
-
-CtrlGroup* Ros_CtrlGroup_Ctor()
-{
-    CtrlGroup* grp = (CtrlGroup*)mpMalloc(sizeof(CtrlGroup));
-    bzero(grp, sizeof(CtrlGroup));
-    return grp;
-}
-
-void Ros_CtrlGroup_Dtor(CtrlGroup* grp)
-{
-    mpFree(grp);
-}
 
 //-------------------------------------------------------------------
 // Create a CtrlGroup data structure for existing group otherwise
@@ -83,7 +41,7 @@ CtrlGroup* Ros_CtrlGroup_Create(int groupIndex, BOOL bIsLastGrpToInit, float int
     // Check if group is defined
     numAxes = GP_getNumberOfAxes(groupIndex);
 #ifdef DEBUG
-    Ros_Debug_BroadcastMsg("Group %d: Num Axes %d", groupIndex, numAxes);
+    printf("Group %d: Num Axes %d", groupIndex, numAxes);
 #endif
     if (numAxes > 0)
     {
@@ -100,7 +58,7 @@ CtrlGroup* Ros_CtrlGroup_Create(int groupIndex, BOOL bIsLastGrpToInit, float int
         if (Ros_CtrlGroup_IsRobot(ctrlGroup))
         {
             mpGetToolNo(ctrlGroup->groupId, &retToolData);
-            //TODO: need to update this value when selected tool changes
+            // TODO: need to update this value when selected tool changes
             ctrlGroup->tool = retToolData.sToolNo;
 
             int baseIdOffset = (int)ctrlGroup->groupId - (int)MP_R1_GID;
@@ -133,7 +91,7 @@ CtrlGroup* Ros_CtrlGroup_Create(int groupIndex, BOOL bIsLastGrpToInit, float int
             bInitOk = FALSE;
 
         status = GP_getFBPulseCorrection(groupIndex, &ctrlGroup->correctionData);
-        if(status!=OK)
+        if (status != OK)
             bInitOk = FALSE;
 
         status = GP_getMaxIncPerIpCycle(groupIndex, interpolPeriod, &ctrlGroup->maxInc);
@@ -144,10 +102,14 @@ CtrlGroup* Ros_CtrlGroup_Create(int groupIndex, BOOL bIsLastGrpToInit, float int
         if (status != OK)
             bInitOk = FALSE;
 
-        status = GP_getFeedbackSpeedMRegisterAddresses(groupIndex, //zero based index of the control group
-                                                        TRUE, //If the register-speed-feedback is not enabled, automatically modify the SC.PRM file to enable this feature.
-                                                        bIsLastGrpToInit, //If activating the reg-speed-feedback feature, delay the alarm until all the groups have been processed.
-                                                        &ctrlGroup->speedFeedbackRegisterAddress); //[OUT] Index of the M registers containing the feedback speed values.
+        status = GP_getFeedbackSpeedMRegisterAddresses(
+                groupIndex, // zero based index of the control group
+                TRUE, // If the register-speed-feedback is not enabled, automatically modify the SC.PRM file to enable
+                      // this feature.
+                bIsLastGrpToInit, // If activating the reg-speed-feedback feature, delay the alarm until all the groups
+                                  // have been processed.
+                &ctrlGroup->speedFeedbackRegisterAddress); //[OUT] Index of the M registers containing the feedback
+                                                           //speed values.
         if (status != OK)
         {
             ctrlGroup->speedFeedbackRegisterAddress.bFeedbackSpeedEnabled = FALSE;
@@ -155,10 +117,11 @@ CtrlGroup* Ros_CtrlGroup_Create(int groupIndex, BOOL bIsLastGrpToInit, float int
 
         ctrlGroup->bIsBaxisSlave = (numAxes == 5) && slaveAxis;
 
-        //adjust the axisType field to account for robots with non-contiguous axes (such as delta or palletizing which use SLU--T axes)
+        // adjust the axisType field to account for robots with non-contiguous axes (such as delta or palletizing which
+        // use SLU--T axes)
         for (i = 0; i < MP_GRP_AXES_NUM; i += 1)
         {
-            if (ctrlGroup->maxInc.maxIncrement[i] == 0) //if the axis can't move, then I assume it's invalid
+            if (ctrlGroup->maxInc.maxIncrement[i] == 0) // if the axis can't move, then I assume it's invalid
                 ctrlGroup->axisType.type[i] = AXIS_INVALID;
         }
 
@@ -167,7 +130,7 @@ CtrlGroup* Ros_CtrlGroup_Create(int groupIndex, BOOL bIsLastGrpToInit, float int
 
         // Calculate maximum speed in radian per second
         bzero(maxSpeedPulse, sizeof(maxSpeedPulse));
-        for(i=0; i<MP_GRP_AXES_NUM; i++)
+        for (i = 0; i < MP_GRP_AXES_NUM; i++)
             maxSpeedPulse[i] = ctrlGroup->maxInc.maxIncrement[i] * 1000.0 / interpolPeriod;
         Ros_CtrlGroup_ConvertToRosPos(ctrlGroup, maxSpeedPulse, ctrlGroup->maxSpeed);
 
@@ -184,7 +147,7 @@ CtrlGroup* Ros_CtrlGroup_Create(int groupIndex, BOOL bIsLastGrpToInit, float int
                 strcat(startupMessage, "---\t");
             }
         }
-        Ros_Debug_BroadcastMsg(startupMessage);
+        printf(startupMessage);
 
         sprintf(startupMessage, "pulse->unit[%d]: ", groupIndex);
         for (i = 0; i < MP_GRP_AXES_NUM; i++)
@@ -196,22 +159,30 @@ CtrlGroup* Ros_CtrlGroup_Create(int groupIndex, BOOL bIsLastGrpToInit, float int
             else
                 strcat(startupMessage, "--\t");
         }
-        Ros_Debug_BroadcastMsg(startupMessage);
+        printf(startupMessage);
 
-        Ros_Debug_BroadcastMsg("maxInc[%d] (in motoman joint order): %d, %d, %d, %d, %d, %d, %d, %d",
-            groupIndex,
-            ctrlGroup->maxInc.maxIncrement[0],ctrlGroup->maxInc.maxIncrement[1],ctrlGroup->maxInc.maxIncrement[2],
-            ctrlGroup->maxInc.maxIncrement[3],ctrlGroup->maxInc.maxIncrement[4],ctrlGroup->maxInc.maxIncrement[5],
-            ctrlGroup->maxInc.maxIncrement[6],ctrlGroup->maxInc.maxIncrement[7]);
+        printf("maxInc[%d] (in motoman joint order): %d, %d, %d, %d, %d, %d, %d",
+               groupIndex,
+               ctrlGroup->maxInc.maxIncrement[0],
+               ctrlGroup->maxInc.maxIncrement[1],
+               ctrlGroup->maxInc.maxIncrement[2],
+               ctrlGroup->maxInc.maxIncrement[3],
+               ctrlGroup->maxInc.maxIncrement[4],
+               ctrlGroup->maxInc.maxIncrement[5],
+               ctrlGroup->maxInc.maxIncrement[6]);
 
-        Ros_Debug_BroadcastMsg("maxSpeed[%d] (in ros joint order): %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f",
-            groupIndex,
-            ctrlGroup->maxSpeed[0],ctrlGroup->maxSpeed[1],ctrlGroup->maxSpeed[2],
-            ctrlGroup->maxSpeed[3],ctrlGroup->maxSpeed[4],ctrlGroup->maxSpeed[5],
-            ctrlGroup->maxSpeed[6],ctrlGroup->maxSpeed[7]);
+        printf("maxSpeed[%d] (in ros joint order): %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f",
+               groupIndex,
+               ctrlGroup->maxSpeed[0],
+               ctrlGroup->maxSpeed[1],
+               ctrlGroup->maxSpeed[2],
+               ctrlGroup->maxSpeed[3],
+               ctrlGroup->maxSpeed[4],
+               ctrlGroup->maxSpeed[5],
+               ctrlGroup->maxSpeed[6]);
 
         //----------------------------------------------------------------
-        if(bInitOk == FALSE)
+        if (bInitOk == FALSE)
         {
             mpFree(ctrlGroup);
             ctrlGroup = NULL;
@@ -226,17 +197,28 @@ CtrlGroup* Ros_CtrlGroup_Create(int groupIndex, BOOL bIsLastGrpToInit, float int
     {
         ctrlGroup->hasDataToProcess = FALSE;
 
-        Ros_Debug_BroadcastMsg("Creating new task: Add To Inc Q (Group %d)", groupIndex + 1);
+        printf("Creating new task: Add To Inc Q (Group %d)", groupIndex + 1);
 
-        ctrlGroup->tidAddToIncQueue = mpCreateTask(MP_PRI_TIME_NORMAL, MP_STACK_SIZE,
-                                                    (FUNCPTR)Ros_MotionControl_AddToIncQueueProcess,
-                                                    (int)ctrlGroup, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        ctrlGroup->tidAddToIncQueue = mpCreateTask(
+                MP_PRI_TIME_NORMAL,
+                MP_STACK_SIZE,
+                (FUNCPTR)Ros_MotionControl_AddToIncQueueProcess,
+                (int)ctrlGroup,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0);
         if (ctrlGroup->tidAddToIncQueue == ERROR)
         {
-            Ros_Debug_BroadcastMsg("Failed to create task for interpolating increments.  Check robot parameters.");
+            printf("Failed to create task for interpolating increments.  Check robot parameters.");
             ctrlGroup->tidAddToIncQueue = INVALID_TASK;
             Ros_Controller_SetIOState(IO_FEEDBACK_FAILURE, TRUE);
-            mpSetAlarm(ALARM_TASK_CREATE_FAIL, APPLICATION_NAME " FAILED TO CREATE TASK", SUBCODE_ADD_TO_INC_Q);
+            mpSetAlarm(ALARM_TASK_CREATE_FAIL, "FAILED TO CREATE TASK", SUBCODE_ADD_TO_INC_Q);
 
             ctrlGroup = NULL;
         }
@@ -253,33 +235,32 @@ void Ros_CtrlGrp_Cleanup(CtrlGroup* ctrlGroup)
     mpSemDelete(ctrlGroup->inc_q.q_lock);
 }
 
-
 //-------------------------------------------------------------------
 // Search through the control group to find the GroupId that matches
 // the group number
 //-------------------------------------------------------------------
 MP_GRP_ID_TYPE Ros_mpCtrlGrpNo2GrpId(int groupNo)
 {
-#if defined (YRC1000) || defined (YRC1000u)
+#if defined(YRC1000) || defined(YRC1000u)
     return mpCtrlGrpNo2GrpId(groupNo);
 
-#elif defined (FS100) || defined (DX200)
+#elif defined(FS100) || defined(DX200)
     MP_GRP_ID_TYPE grp_id;
 
-    for(grp_id = MP_R1_GID; grp_id < MP_S24_GID; ++grp_id)
+    for (grp_id = MP_R1_GID; grp_id < MP_S24_GID; ++grp_id)
     {
-        if(groupNo == mpCtrlGrpId2GrpNo(grp_id))
+        if (groupNo == mpCtrlGrpId2GrpNo(grp_id))
             return grp_id;
     }
 
     return -1;
 
 #else
-#error "Ros_mpCtrlGrpNo2GrpId: unsupported platform"
+    // COMOLI
+    // #error "Ros_mpCtrlGrpNo2GrpId: unsupported platform"
 
 #endif
 }
-
 
 //-------------------------------------------------------------------
 // Get the commanded pulse position in pulse (in motoman joint order)
@@ -292,31 +273,31 @@ BOOL Ros_CtrlGroup_GetPulsePosCmd(CtrlGroup* ctrlGroup, long pulsePos[MAX_PULSE_
     MP_PULSE_POS_RSP_DATA pulse_data;
     int i;
 
-    bzero(pulsePos, MAX_PULSE_AXES*sizeof(long));  // clear result, in case of error
+    bzero(pulsePos, MAX_PULSE_AXES * sizeof(long)); // clear result, in case of error
 
     // Set the control group
     sData.sCtrlGrp = ctrlGroup->groupId;
 
     // get the command joint positions
-    status = mpGetPulsePos (&sData,&pulse_data);
+    status = mpGetPulsePos(&sData, &pulse_data);
     if (0 != status)
     {
-        Ros_Debug_BroadcastMsg("Failed to get pulse position (command): %u", status);
+        printf("Failed to get pulse position (command): %u", status);
         return FALSE;
     }
 
     // assign return value
-    for (i=0; i<MAX_PULSE_AXES; ++i)
+    for (i = 0; i < MAX_PULSE_AXES; ++i)
         pulsePos[i] = pulse_data.lPos[i];
 
     // For MPL80/100 robot type (SLUBT): Controller automatically moves the B-axis
     // to maintain orientation as other axes are moved.
     if (ctrlGroup->bIsBaxisSlave)
     {
-        //temporary storage for B axis compensation
+        // temporary storage for B axis compensation
         double rosAnglePos[MP_GRP_AXES_NUM];
 
-        //B axis compensation works on the ROS ANGLE positions, not on MOTO PULSE positions
+        // B axis compensation works on the ROS ANGLE positions, not on MOTO PULSE positions
         Ros_CtrlGroup_ConvertToRosPos(ctrlGroup, pulsePos, rosAnglePos);
         rosAnglePos[3] += -rosAnglePos[1] + rosAnglePos[2];
         Ros_CtrlGroup_ConvertToMotoPos_FromSequentialOrdering(ctrlGroup, rosAnglePos, pulsePos);
@@ -324,7 +305,6 @@ BOOL Ros_CtrlGroup_GetPulsePosCmd(CtrlGroup* ctrlGroup, long pulsePos[MAX_PULSE_
 
     return TRUE;
 }
-
 
 //-------------------------------------------------------------------
 // Get the corrected feedback pulse position in pulse.
@@ -340,25 +320,17 @@ BOOL Ros_CtrlGroup_GetFBPulsePos(CtrlGroup* ctrlGroup, long pulsePos[MAX_PULSE_A
 #endif
     int i;
 
-    bzero(pulsePos, MAX_PULSE_AXES*sizeof(long));  // clear result, in case of error
+    bzero(pulsePos, MAX_PULSE_AXES * sizeof(long)); // clear result, in case of error
 
     // Set the control group
     sData.sCtrlGrp = ctrlGroup->groupId;
 
 #ifndef DUMMY_SERVO_MODE
     // get raw (uncorrected/unscaled) joint positions
-    LONG status = mpGetFBPulsePos (&sData,&pulse_data);
-
-    //TODO: Consider using mpGetFBPulsePosEx. The `ex` version automatically applies
-    //      any needed corrections, such as gravity compensation and cross-axis
-    //      coupling. We're already (manually) applying those corrections, so we don't
-    //      need the `ex` version. But if the next controller generation adds some new
-    //      feature, then we should transition so that we don't have to worry about it.
-    //      See also yaskawa-global/motoros2#199.
-
+    LONG status = mpGetFBPulsePos(&sData, &pulse_data);
     if (0 != status)
     {
-        Ros_Debug_BroadcastMsg("Failed to get pulse feedback position: %u", status);
+        printf("Failed to get pulse feedback position: %u", status);
         return FALSE;
     }
 
@@ -366,9 +338,9 @@ BOOL Ros_CtrlGroup_GetFBPulsePos(CtrlGroup* ctrlGroup, long pulsePos[MAX_PULSE_A
     // Note: this is only required for feedback position
     // controller handles this correction internally when
     // dealing with command positon.
-    for (i=0; i<MAX_PULSE_AXES; ++i)
+    for (i = 0; i < MAX_PULSE_AXES; ++i)
     {
-        FB_AXIS_CORRECTION *corr = &ctrlGroup->correctionData.correction[i];
+        FB_AXIS_CORRECTION* corr = &ctrlGroup->correctionData.correction[i];
         if (corr->bValid)
         {
             int src_axis = corr->ulSourceAxis;
@@ -381,11 +353,11 @@ BOOL Ros_CtrlGroup_GetFBPulsePos(CtrlGroup* ctrlGroup, long pulsePos[MAX_PULSE_A
 #endif
 
     // assign return value
-    for (i=0; i<MAX_PULSE_AXES; ++i)
+    for (i = 0; i < MAX_PULSE_AXES; ++i)
         pulsePos[i] = pulse_data.lPos[i];
 
     //--------------------------------------------------------------------
-    //NOTE: Do NOT apply any B axis compensation here.
+    // NOTE: Do NOT apply any B axis compensation here.
     //      This is actual feedback which is reported to the state server.
     //--------------------------------------------------------------------
 
@@ -401,7 +373,7 @@ BOOL Ros_CtrlGroup_GetFBServoSpeed(CtrlGroup* ctrlGroup, long pulseSpeed[MAX_PUL
 
 #ifndef DUMMY_SERVO_MODE
     LONG status;
-    MP_IO_INFO registerInfo[MAX_PULSE_AXES * 2]; //values are 4 bytes, which consumes 2 registers
+    MP_IO_INFO registerInfo[MAX_PULSE_AXES * 2]; // values are 4 bytes, which consumes 2 registers
     USHORT registerValues[MAX_PULSE_AXES * 2];
     UINT32 registerValuesLong[MAX_PULSE_AXES * 2];
 
@@ -420,43 +392,43 @@ BOOL Ros_CtrlGroup_GetFBServoSpeed(CtrlGroup* ctrlGroup, long pulseSpeed[MAX_PUL
     status = mpReadIO(registerInfo, registerValues, MAX_PULSE_AXES * 2);
     if (status != OK)
     {
-        Ros_Debug_BroadcastMsg("Failed to get pulse feedback speed: %u", status);
+        printf("Failed to get pulse feedback speed: %u", status);
         return FALSE;
     }
 
     for (i = 0; i < MAX_PULSE_AXES; i += 1)
     {
-        //move to 32 bit storage
+        // move to 32 bit storage
         registerValuesLong[i * 2] = registerValues[i * 2];
         registerValuesLong[(i * 2) + 1] = registerValues[(i * 2) + 1];
 
-        //combine both registers into single 4 byte value (0.0001 deg/sec or 1 um/sec)
+        // combine both registers into single 4 byte value (0.0001 deg/sec or 1 um/sec)
         double dblRegister = (registerValuesLong[(i * 2) + 1] << 16) | registerValuesLong[i * 2];
 
-        //convert to pulse/sec
+        // convert to pulse/sec
         if (ctrlGroup->axisType.type[i] == AXIS_ROTATION)
         {
-            dblRegister /= 1.0E4; //deg/sec
-            dblRegister *= RAD_PER_DEGREE; //rad/sec
-            dblRegister *= ctrlGroup->pulseToRad.PtoR[i]; //pulse/sec
+            dblRegister /= 1.0E4;                         // deg/sec
+            dblRegister *= RAD_PER_DEGREE;                // rad/sec
+            dblRegister *= ctrlGroup->pulseToRad.PtoR[i]; // pulse/sec
         }
         else if (ctrlGroup->axisType.type[i] == AXIS_LINEAR)
         {
-            dblRegister /= 1.0E6; //m/sec
-            dblRegister *= ctrlGroup->pulseToMeter.PtoM[i]; //pulse/sec
+            dblRegister /= 1.0E6;                           // m/sec
+            dblRegister *= ctrlGroup->pulseToMeter.PtoM[i]; // pulse/sec
         }
 
         pulseSpeed[i] = (long)dblRegister;
     }
 
-#else //dummy-servo mode for testing
+#else // dummy-servo mode for testing
     MP_CTRL_GRP_SEND_DATA sData;
     MP_SERVO_SPEED_RSP_DATA pulse_data;
 
     mpGetServoSpeed(&sData, &pulse_data);
 
     // assign return value
-    for (i = 0; i<MAX_PULSE_AXES; ++i)
+    for (i = 0; i < MAX_PULSE_AXES; ++i)
         pulseSpeed[i] = pulse_data.lSpeed[i];
 #endif
 
@@ -473,9 +445,9 @@ BOOL Ros_CtrlGroup_GetTorque(CtrlGroup* ctrlGroup, double torqueValues[MAX_PULSE
     LONG status = 0;
     int i;
 
-    bzero(torqueValues, sizeof(double [MAX_PULSE_AXES])); // clear result, in case of error
+    bzero(torqueValues, sizeof(double[MAX_PULSE_AXES])); // clear result, in case of error
     bzero(dst_trq.data, sizeof(MP_TRQCTL_DATA));
-    dst_trq.unit = TRQ_NEWTON_METER; //request data in Nm
+    dst_trq.unit = TRQ_NEWTON_METER; // request data in Nm
 
     bzero(&dst_vel, sizeof(MP_GRP_AXES_T));
 
@@ -485,7 +457,8 @@ BOOL Ros_CtrlGroup_GetTorque(CtrlGroup* ctrlGroup, double torqueValues[MAX_PULSE
 
     for (i = 0; i < MAX_PULSE_AXES; i += 1)
     {
-        torqueValues[i] = (double)dst_trq.data[ctrlGroup->groupNo][i] * 0.000001; //Use double.  Float only good for 6 sig digits.
+        torqueValues[i] = (double)dst_trq.data[ctrlGroup->groupNo][i] *
+                          0.000001; // Use double.  Float only good for 6 sig digits.
     }
 
     return TRUE;
@@ -509,7 +482,7 @@ BOOL Ros_CtrlGroup_GetEncoderTemperature(CtrlGroup const* const ctrlGroup, long 
     status = mpGetEncoderTemp(&sData, &rData);
     if (0 != status)
     {
-        Ros_Debug_BroadcastMsg("Failed to get encoder temperature: %ld", status);
+        printf("Failed to get encoder temperature: %ld", status);
         return FALSE;
     }
 
@@ -518,20 +491,23 @@ BOOL Ros_CtrlGroup_GetEncoderTemperature(CtrlGroup const* const ctrlGroup, long 
     return TRUE;
 }
 
-//Convert the Motoman position units (pulses) to ROS position units (radians/meters).
-//This function must be called BEFORE calling Ros_CtrlGroup_ConvertMotoJointOrderToSequentialJointOrder.
-//The joints must be in Motoman (non-sequential) ordering.
-void Ros_CtrlGroup_ConvertMotoUnitsToRosUnits(CtrlGroup* ctrlGroup, long const motopulsePos[MAX_PULSE_AXES], double rosPos[MAX_PULSE_AXES])
+// Convert the Motoman position units (pulses) to ROS position units (radians/meters).
+// This function must be called BEFORE calling Ros_CtrlGroup_ConvertMotoJointOrderToSequentialJointOrder.
+// The joints must be in Motoman (non-sequential) ordering.
+void Ros_CtrlGroup_ConvertMotoUnitsToRosUnits(
+        CtrlGroup* ctrlGroup,
+        long const motopulsePos[MAX_PULSE_AXES],
+        double rosPos[MAX_PULSE_AXES])
 {
     int i;
     double conversion = 1;
 
     bzero(rosPos, sizeof(double) * MAX_PULSE_AXES);
 
-    //Delta: (SLU--T-) All rotary axes
-    //Scara: (SLUR---) U-axis is linear
-    //Large Palletizing: (SLU--T-) All rotary axes
-    //High Speed Picking: (SLU-BT-) All rotary axes
+    // Delta: (SLU--T-) All rotary axes
+    // Scara: (SLUR---) U-axis is linear
+    // Large Palletizing: (SLU--T-) All rotary axes
+    // High Speed Picking: (SLU-BT-) All rotary axes
     for (i = 0; i < MAX_PULSE_AXES; i += 1)
     {
         if (Ros_CtrlGroup_IsInvalidAxis(ctrlGroup, i))
@@ -548,14 +524,16 @@ void Ros_CtrlGroup_ConvertMotoUnitsToRosUnits(CtrlGroup* ctrlGroup, long const m
 
         rosPos[i] = motopulsePos[i] / conversion;
     }
-
 }
 
-void Ros_CtrlGroup_ConvertMotoJointOrderToSequentialJointOrder(CtrlGroup* ctrlGroup, double const motoPos[MAX_PULSE_AXES], double rosPos[MAX_PULSE_AXES])
+void Ros_CtrlGroup_ConvertMotoJointOrderToSequentialJointOrder(
+        CtrlGroup* ctrlGroup,
+        double const motoPos[MAX_PULSE_AXES],
+        double rosPos[MAX_PULSE_AXES])
 {
     int i;
 
-    if ((ctrlGroup->numAxes == 7) && Ros_CtrlGroup_IsRobot(ctrlGroup)) //is robot, and is 7 axis
+    if ((ctrlGroup->numAxes == 7) && Ros_CtrlGroup_IsRobot(ctrlGroup)) // is robot, and is 7 axis
     {
         // Adjust joint order for 7 axis robot (SLURBTE > SLEURBT); All rotary axes
 
@@ -571,13 +549,13 @@ void Ros_CtrlGroup_ConvertMotoJointOrderToSequentialJointOrder(CtrlGroup* ctrlGr
     }
     else if (Ros_CtrlGroup_IsRobot(ctrlGroup) && ctrlGroup->numAxes < 6)
     {
-        //Delta: (SLU--T- > SLUT---) All rotary axes
-        //Scara: (SLUR--- > SLUR---) U-axis is linear
-        //Large Palletizing: (SLU--T- > SLUT---) All rotary axes
-        //High Speed Picking: (SLU-BT- > SLUBT--) All rotary axes
+        // Delta: (SLU--T- > SLUT---) All rotary axes
+        // Scara: (SLUR--- > SLUR---) U-axis is linear
+        // Large Palletizing: (SLU--T- > SLUT---) All rotary axes
+        // High Speed Picking: (SLU-BT- > SLUBT--) All rotary axes
 
-        int rpi = 0; //rosPos index
-        int mpi = 0; //motopos index
+        int rpi = 0; // rosPos index
+        int mpi = 0; // motopos index
 
         for (i = 0; i < ctrlGroup->numAxes; i += 1, rpi += 1, mpi += 1)
         {
@@ -604,11 +582,14 @@ void Ros_CtrlGroup_ConvertMotoJointOrderToSequentialJointOrder(CtrlGroup* ctrlGr
 // In the case of a 7, 4, or 5 axis robot, adjust the order to match
 // the physical axis sequence
 //-------------------------------------------------------------------
-void Ros_CtrlGroup_ConvertToRosPos(CtrlGroup* ctrlGroup, long const motopulsePos[MAX_PULSE_AXES], double rosPos[MAX_PULSE_AXES])
+void Ros_CtrlGroup_ConvertToRosPos(
+        CtrlGroup* ctrlGroup,
+        long const motopulsePos[MAX_PULSE_AXES],
+        double rosPos[MAX_PULSE_AXES])
 {
     double rosUnitsWithMotoOrder[MAX_PULSE_AXES];
 
-    //call this first, due to expected joint ordering 
+    // call this first, due to expected joint ordering
     Ros_CtrlGroup_ConvertMotoUnitsToRosUnits(ctrlGroup, motopulsePos, rosUnitsWithMotoOrder);
 
     Ros_CtrlGroup_ConvertMotoJointOrderToSequentialJointOrder(ctrlGroup, rosUnitsWithMotoOrder, rosPos);
@@ -616,25 +597,32 @@ void Ros_CtrlGroup_ConvertToRosPos(CtrlGroup* ctrlGroup, long const motopulsePos
 
 // Convert Motoman torque to ROS torque by re-ordering the joints
 //-------------------------------------------------------------------
-void Ros_CtrlGroup_ConvertToRosTorque(CtrlGroup* ctrlGroup, double const motoTorque[MAX_PULSE_AXES], double rosTorque[MAX_PULSE_AXES])
+void Ros_CtrlGroup_ConvertToRosTorque(
+        CtrlGroup* ctrlGroup,
+        double const motoTorque[MAX_PULSE_AXES],
+        double rosTorque[MAX_PULSE_AXES])
 {
     Ros_CtrlGroup_ConvertMotoJointOrderToSequentialJointOrder(ctrlGroup, motoTorque, rosTorque);
 }
 
-//Convert the ROS position units (radians/meters) to Motoman position units (pulses).
-//This function must be called AFTER calling Ros_CtrlGroup_ConvertSequentialJointOrderToMotoJointOrder.
-//The joints must be in Motoman (non-sequential) ordering.
-void Ros_CtrlGroup_ConvertRosUnitsToMotoUnits(CtrlGroup* ctrlGroup, double const rosPos[MAX_PULSE_AXES], long motopulsePos[MAX_PULSE_AXES])
+// Convert the ROS position units (radians/meters) to Motoman position units (pulses).
+// This function must be called AFTER calling Ros_CtrlGroup_ConvertSequentialJointOrderToMotoJointOrder.
+// The joints must be in Motoman (non-sequential) ordering.
+void Ros_CtrlGroup_ConvertRosUnitsToMotoUnits(
+        CtrlGroup* ctrlGroup,
+        double const rosPos[MAX_PULSE_AXES],
+        long motopulsePos[MAX_PULSE_AXES])
 {
     double conversion = 1;
 
     bzero(motopulsePos, sizeof(long) * MAX_PULSE_AXES);
 
-    //Delta: (SLU--T-) All rotary axes
-    //Scara: (SLUR---) U-axis is linear
-    //Large Palletizing: (SLU--T-) All rotary axes
-    //High Speed Picking: (SLU-BT-) All rotary axes
-    for (int i = 0; i < MAX_PULSE_AXES; i += 1)
+    // Delta: (SLU--T-) All rotary axes
+    // Scara: (SLUR---) U-axis is linear
+    // Large Palletizing: (SLU--T-) All rotary axes
+    // High Speed Picking: (SLU-BT-) All rotary axes
+    int i = 0;
+    for (i = 0; i < MAX_PULSE_AXES; i += 1)
     {
         if (Ros_CtrlGroup_IsInvalidAxis(ctrlGroup, i))
         {
@@ -652,7 +640,10 @@ void Ros_CtrlGroup_ConvertRosUnitsToMotoUnits(CtrlGroup* ctrlGroup, double const
     }
 }
 
-void Ros_CtrlGroup_ConvertSequentialJointOrderToMotoJointOrder(CtrlGroup* ctrlGroup, double const rosPos[MAX_PULSE_AXES], double motoPos[MAX_PULSE_AXES])
+void Ros_CtrlGroup_ConvertSequentialJointOrderToMotoJointOrder(
+        CtrlGroup* ctrlGroup,
+        double const rosPos[MAX_PULSE_AXES],
+        double motoPos[MAX_PULSE_AXES])
 {
     int i;
 
@@ -675,13 +666,13 @@ void Ros_CtrlGroup_ConvertSequentialJointOrderToMotoJointOrder(CtrlGroup* ctrlGr
     }
     else if (Ros_CtrlGroup_IsRobot(ctrlGroup) && ctrlGroup->numAxes < 6)
     {
-        //Delta: (SLUT--- > SLU--T-) All rotary axes
-        //Scara: (SLUR--- > SLUR---) U-axis is linear
-        //Large Palletizing: (SLUT--- > SLU--T-) All rotary axes
-        //High Speed Picking: (SLUBT-- > SLU-BT-) All rotary axes
+        // Delta: (SLUT--- > SLU--T-) All rotary axes
+        // Scara: (SLUR--- > SLUR---) U-axis is linear
+        // Large Palletizing: (SLUT--- > SLU--T-) All rotary axes
+        // High Speed Picking: (SLUBT-- > SLU-BT-) All rotary axes
 
-        int rpi = 0; //radpos index
-        int mpi = 0; //motopos index
+        int rpi = 0; // radpos index
+        int mpi = 0; // motopos index
 
         for (i = 0; i < ctrlGroup->numAxes; i += 1, rpi += 1, mpi += 1)
         {
@@ -709,13 +700,16 @@ void Ros_CtrlGroup_ConvertSequentialJointOrderToMotoJointOrder(CtrlGroup* ctrlGr
 // In the case of a 7 or 4 axis robot, adjust the order to match
 // the motoman axis sequence
 //-------------------------------------------------------------------
-void Ros_CtrlGroup_ConvertToMotoPos_FromSequentialOrdering(CtrlGroup* ctrlGroup, double const radPos[MAX_PULSE_AXES], long motopulsePos[MAX_PULSE_AXES])
+void Ros_CtrlGroup_ConvertToMotoPos_FromSequentialOrdering(
+        CtrlGroup* ctrlGroup,
+        double const radPos[MAX_PULSE_AXES],
+        long motopulsePos[MAX_PULSE_AXES])
 {
     double rosUnitsWithMotoOrder[MAX_PULSE_AXES];
 
     Ros_CtrlGroup_ConvertSequentialJointOrderToMotoJointOrder(ctrlGroup, radPos, rosUnitsWithMotoOrder);
 
-    //must call this after Ros_CtrlGroup_ConvertSequentialJointOrderToMotoJointOrder due to expected joint ordering
+    // must call this after Ros_CtrlGroup_ConvertSequentialJointOrderToMotoJointOrder due to expected joint ordering
     Ros_CtrlGroup_ConvertRosUnitsToMotoUnits(ctrlGroup, rosUnitsWithMotoOrder, motopulsePos);
 }
 
@@ -741,7 +735,7 @@ UCHAR Ros_CtrlGroup_GetAxisConfig(CtrlGroup* ctrlGroup)
 //-------------------------------------------------------------------
 BOOL Ros_CtrlGroup_IsRobot(CtrlGroup* ctrlGroup)
 {
-    return((ctrlGroup->groupId >= MP_R1_GID) && (ctrlGroup->groupId <= MP_R8_GID));
+    return ((ctrlGroup->groupId >= MP_R1_GID) && (ctrlGroup->groupId <= MP_R8_GID));
 }
 
 //-------------------------------------------------------------------
@@ -773,56 +767,60 @@ BOOL Ros_CtrlGroup_IsInvalidAxis(CtrlGroup const* const ctrlGroup, size_t axisId
 //-------------------------------------------------------------------
 BOOL Ros_CtrlGroup_HasBaseTrack(CtrlGroup const* ctrlGroup)
 {
-    //according to the comment on CtrlGroup.h::CtrlGroup::baseTrackGroupIndex,
-    //checking for this to be != -1 should be sufficient to determine whether
-    //or not this group has a base track configured or not
+    // according to the comment on CtrlGroup.h::CtrlGroup::baseTrackGroupIndex,
+    // checking for this to be != -1 should be sufficient to determine whether
+    // or not this group has a base track configured or not
     return (ctrlGroup->baseTrackGroupIndex != -1);
 }
 
 //-------------------------------------------------------------------
 // Store the user-defined joint names in the CtrlGroup object using
 // "motoman" order. This will be used as a lookup table when receiving
-// a trajectory request. 
+// a trajectory request.
 //-------------------------------------------------------------------
 void Ros_CtrlGroup_UpdateJointNamesInMotoOrder(CtrlGroup* ctrlGroup)
 {
     bzero(ctrlGroup->jointNames_userDefined, sizeof(ctrlGroup->jointNames_userDefined));
 
-    //Iterate over the axis configuration to ensure we account for any non-sequential gaps
+    // Iterate over the axis configuration to ensure we account for any non-sequential gaps
     //  6-axis: (SLURBT--)
     //  7-axis: (SLURBTE-)
     //  Delta: (SLU--T--)
     //  Scara: (SLUR----)
     //  Large Palletizing: (SLU--T--)
     //  High Speed Picking: (SLU-BT--)
-    for (int axisIndex = 0, configIndex = 0; axisIndex < MP_GRP_AXES_NUM; axisIndex += 1)
+    int axisIndex;
+    int configIndex;
+    for (axisIndex = 0, configIndex = 0; axisIndex < MP_GRP_AXES_NUM; axisIndex += 1)
     {
         if (!Ros_CtrlGroup_IsInvalidAxis(ctrlGroup, axisIndex))
         {
             int customNameIndex = (ctrlGroup->groupNo * MP_GRP_AXES_NUM) + configIndex;
 
-            //while we're here, check a non-empty name was configured -- this could be
-            //a sign of misconfigured custom joint names (fi: a missing entry).
-            //We couldn't check for this earlier, as the config parser is driven by
-            //content of the configuration file. Entries which are not present are simply
-            //not parsed, while here we are trying to match configuration entries to
-            //controller groups and axes.
+            // while we're here, check a non-empty name was configured -- this could be
+            // a sign of misconfigured custom joint names (fi: a missing entry).
+            // We couldn't check for this earlier, as the config parser is driven by
+            // content of the configuration file. Entries which are not present are simply
+            // not parsed, while here we are trying to match configuration entries to
+            // controller groups and axes.
             if (0 == Ros_strnlen(g_nodeConfigSettings.joint_names[customNameIndex], MAX_JOINT_NAME_LENGTH))
             {
-                //Raise two alarms so we can post a clearer error msg
+                // Raise two alarms so we can post a clearer error msg
                 char errMsg[ERROR_MSG_MAX_SIZE];
-                //Note: prints axis index 1-based
-                snprintf(errMsg, ERROR_MSG_MAX_SIZE, "group: %s, axis: %d",
-                    Ros_CtrlGroup_GRP_ID_String[ctrlGroup->groupId], axisIndex + 1);
-                mpSetAlarm(ALARM_CONFIGURATION_FAIL, errMsg,
-                    SUBCODE_CONFIGURATION_INVALID_CUSTOM_JOINT_NAME);
-                motoRosAssert_withMsg(false, SUBCODE_CONFIGURATION_EMPTY_JOINT_NAME,
-                    "Empty custom joint name");
+                // Note: prints axis index 1-based
+                snprintf(
+                        errMsg,
+                        ERROR_MSG_MAX_SIZE,
+                        "group: %s, axis: %d",
+                        Ros_CtrlGroup_GRP_ID_String[ctrlGroup->groupId],
+                        axisIndex + 1);
+                mpSetAlarm(ALARM_CONFIGURATION_FAIL, errMsg, SUBCODE_CONFIGURATION_INVALID_CUSTOM_JOINT_NAME);
+                motoRosAssert_withMsg(1, SUBCODE_CONFIGURATION_EMPTY_JOINT_NAME, "Empty custom joint name");
             }
 
             strncpy(ctrlGroup->jointNames_userDefined[axisIndex],
-                g_nodeConfigSettings.joint_names[customNameIndex],
-                MAX_JOINT_NAME_LENGTH);
+                    g_nodeConfigSettings.joint_names[customNameIndex],
+                    MAX_JOINT_NAME_LENGTH);
 
             configIndex += 1;
         }

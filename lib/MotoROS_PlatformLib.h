@@ -8,6 +8,7 @@
 #ifndef MOTOROS_PLATFORM_LIB_H
 #define MOTOROS_PLATFORM_LIB_H
 
+#include "motoPlus.h"
 
 // Define the MotoROS_PlatformLib version number as a base-10 integer.
 //
@@ -73,7 +74,8 @@ extern int localtime_r(const time_t* timer, struct tm* timeBuffer);
 // >= VxWorks 6.9
 struct tm* localtime_r(const time_t* timep, struct tm* result);
 #else
-#error localtime_r: unsupported platform
+// COMOLI
+//#error localtime_r: unsupported platform
 #endif
 
 
@@ -91,7 +93,8 @@ typedef int clockid_t;
 extern int clock_gettime(clockid_t clock_id, /* clock ID (always CLOCK_REALTIME) */
                          struct timespec* tp /* where to store current time */);
 #else
-#error clock_gettime: unsupported platform
+// COMOLI
+//#error clock_gettime: unsupported platform
 #endif
 
 
