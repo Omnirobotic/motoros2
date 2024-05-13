@@ -26,9 +26,8 @@ typedef enum
 
 typedef struct 
 {
-    char data[MAX_PULSE_AXES][32];
-    int size;
-} JointsName;
+    char data[32];
+} JointName;
 
 typedef struct 
 {
@@ -68,6 +67,12 @@ typedef struct
     int size;
     JointTrajectoryPoint data[1];
 } JointTrajectoryPointSequence;
+
+typedef struct
+{
+    JointName data[MAX_PULSE_AXES];
+    int size;
+} JointsName;
 
 typedef struct 
 {

@@ -5,7 +5,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "MotoROS.h"
+#include "FileUtilityFunctions.h"
+#include <stdarg.h>
+#include "MotoROS_PlatformLib.h"
+
+#define MAX_LINE_LEN 512
 
 BOOL FileUtilityFunctions_ReadLine(int fd, char* buffer, int len)
 {
@@ -17,14 +21,14 @@ BOOL FileUtilityFunctions_ReadLine(int fd, char* buffer, int len)
     bytesRead = mpRead(fd, buffer, len);
 
     if (bytesRead == -1 || bytesRead == 0)
-        return false;
+        return 0;
 
     //find eol
     mid = strstr(buffer, "\r\n");
 
     //eof
     if (mid == NULL)
-        return true;
+        return 1;
 
     //move file pointer back to eol
     int backup = ((bytesRead - (mid - buffer)) * -1) + 2;
@@ -32,12 +36,11 @@ BOOL FileUtilityFunctions_ReadLine(int fd, char* buffer, int len)
 
     *mid = '\0';
 
-    return true;
+    return 0;
 }
 
 BOOL FileUtilityFunctions_WriteLine(int fd, const char* fmt, ...)
 {
-    const int MAX_LINE_LEN = 512;
     va_list va;
     char buffer[MAX_LINE_LEN];
 
@@ -52,7 +55,7 @@ BOOL FileUtilityFunctions_WriteLine(int fd, const char* fmt, ...)
     bytesWrote = mpWrite(fd, buffer, Ros_strnlen(buffer, MAX_LINE_LEN));
 
     if (bytesWrote == -1 || bytesWrote == 0)
-        return false;
+        return 0;
 
-    return true;
+    return 1;
 }

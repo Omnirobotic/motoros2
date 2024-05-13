@@ -14,6 +14,7 @@
 #include "CmosParameterExtraction.h"
 
 Controller g_Ros_Controller;
+ControllerStatus_Messages g_messages_RobotStatus;
 
 //'private' APIs
 static BOOL Ros_Controller_LoadGroupCalibrationData(Controller* const controller);
@@ -25,7 +26,7 @@ BOOL Ros_Controller_WaitInitReady()
 {
     do // minor alarms can be delayed briefly after bootup
     {
-        printf("Waiting for robot alarms to clear...");
+        printf("Waiting for robot alarms to clear...\n");
         Ros_Sleep(2500);
         Ros_Controller_StatusRead(g_Ros_Controller.ioStatus);
     }
@@ -44,10 +45,10 @@ BOOL Ros_Controller_Initialize()
     BOOL bInitOk;
     STATUS status;
 
-    // COMOLI
-    // MOTOROS2_MEM_TRACE_START(ctrlr_init);
+//     // COMOLI
+//     // MOTOROS2_MEM_TRACE_START(ctrlr_init);
 
-    printf("Initializing controller");
+    printf("Initializing controller\n");
 
     //==================================
     // Init variables and controller status
@@ -57,7 +58,7 @@ BOOL Ros_Controller_Initialize()
     if (status != OK)
         bInitOk = FALSE;
     if (g_Ros_Controller.bPFLEnabled)
-        printf("System has PFL Enabled");
+        printf("System has PFL Enabled\n");
     g_Ros_Controller.bPFLduringRosMove = FALSE;
     g_Ros_Controller.bMpIncMoveError = FALSE;
     g_Ros_Controller.bPrevAlarmState = FALSE;
@@ -70,7 +71,7 @@ BOOL Ros_Controller_Initialize()
 
     // Get the number of groups
     g_Ros_Controller.numGroup = GP_getNumberOfGroups();
-    printf("Number of motion groups: %d (max supported: %d)", g_Ros_Controller.numGroup, MAX_CONTROLLABLE_GROUPS);
+    printf("Number of motion groups: %d (max supported: %d)\n", g_Ros_Controller.numGroup, MAX_CONTROLLABLE_GROUPS);
 
     // too few groups is not OK
     if (g_Ros_Controller.numGroup < 1)
@@ -126,7 +127,7 @@ BOOL Ros_Controller_Initialize()
             else
                 bInitOk = FALSE;
 
-            printf("Created ctrl group %d, memfree = (%d) bytes", groupIndex, mpNumBytesFree());
+            printf("Created ctrl group %d, memfree = (%d) bytes\n", groupIndex, mpNumBytesFree());
         }
         else
             g_Ros_Controller.ctrlGroups[groupIndex] = NULL;
@@ -151,7 +152,7 @@ BOOL Ros_Controller_Initialize()
         // if (g_nodeConfigSettings.ignore_missing_calib_data)
         if (1)
         {
-            printf("%s: ignoring absence of calibration data (or load failure) as configured", __func__);
+            printf("%s: ignoring absence of calibration data (or load failure) as configured\n", __func__);
         }
         else
         {
@@ -160,7 +161,7 @@ BOOL Ros_Controller_Initialize()
                     "No calibration: invalid TF",
                     SUBCODE_CONFIGURATION_NO_CALIB_FILES_LOADED);
             printf("%s: no calibration files loaded: TF potentially incorrect, posting warning "
-                   "(disable with 'ignore_missing_calib_data')",
+                   "(disable with 'ignore_missing_calib_data')\n",
                    __func__);
         }
     }
@@ -192,7 +193,7 @@ BOOL Ros_Controller_Initialize()
     // If not started, start the IncMoveTask (there should be only one instance of this thread)
     if (g_Ros_Controller.tidIncMoveThread == INVALID_TASK)
     {
-        printf("Creating new task: IncMoveTask");
+        printf("Creating new task: IncMoveTask\n");
 
         g_Ros_Controller.tidIncMoveThread = mpCreateTask(
                 MP_PRI_IP_CLK_TAKE,
@@ -210,7 +211,7 @@ BOOL Ros_Controller_Initialize()
                 0);
         if (g_Ros_Controller.tidIncMoveThread == ERROR)
         {
-            printf("Failed to create task for incremental-motion.  Check robot parameters.");
+            printf("Failed to create task for incremental-motion.  Check robot parameters.\n");
             g_Ros_Controller.tidIncMoveThread = INVALID_TASK;
             Ros_Controller_SetIOState(IO_FEEDBACK_FAILURE, TRUE);
             mpSetAlarm(ALARM_TASK_CREATE_FAIL, "FAILED TO CREATE TASK", SUBCODE_INCREMENTAL_MOTION);
@@ -234,7 +235,7 @@ BOOL Ros_Controller_Initialize()
     }
     else
     {
-        printf("Couldn't retrieve eco-mode settings");
+        printf("Couldn't retrieve eco-mode settings\n");
         // this is not fatal, just unfortunate
     }
 
@@ -247,11 +248,11 @@ BOOL Ros_Controller_Initialize()
     else
     {
         Ros_Controller_SetIOState(IO_FEEDBACK_FAILURE, TRUE);
-        printf("Failure to initialize controller");
+        printf("Failure to initialize controller\n");
     }
 
-    // COMOLI
-    // MOTOROS2_MEM_TRACE_REPORT(ctrlr_init);
+//     // COMOLI
+//     // MOTOROS2_MEM_TRACE_REPORT(ctrlr_init);
 
     return bInitOk;
 }
@@ -265,7 +266,7 @@ void Ros_Controller_Cleanup()
 
     //--------------------------------
     // Cleanup memory
-    //
+    
     int groupNum;
     for (groupNum = 0; groupNum < MAX_CONTROLLABLE_GROUPS; groupNum += 1)
     {
@@ -281,7 +282,7 @@ void Ros_Controller_Cleanup()
     g_Ros_Controller.tidIncMoveThread = INVALID_TASK;
 
     // COMOLI
-    // printf("Cleanup publisher robot status");
+    printf("Cleanup publisher robot status");
     // ret = rcl_publisher_fini(&g_publishers_RobotStatus.robotStatus, &g_microRosNodeInfo.node);
     // if (ret != RCL_RET_OK)
     //     printf("Failed cleaning up robot status publisher: %d", ret);
@@ -300,7 +301,7 @@ BOOL Ros_Controller_IsValidGroupNo(int groupNo)
         return TRUE;
     else
     {
-        printf("ERROR: Attempt to access invalid Group No. (%d)", groupNo);
+        printf("ERROR: Attempt to access invalid Group No. (%d)\n", groupNo);
         return FALSE;
     }
 }
@@ -678,7 +679,7 @@ BOOL Ros_Controller_IoStatusUpdate()
         }
 
         if (!prevReadyStatus && Ros_Controller_IsMotionReady())
-            printf("Robot job is ready for ROS commands.");
+            printf("Robot job is ready for ROS commands.\n");
         // COMOLI
         // Ros_Nanos_To_Time_Msg(theTime, &g_messages_RobotStatus.msgRobotStatus->time);
 
@@ -710,9 +711,9 @@ BOOL Ros_Controller_IoStatusUpdate()
             int num_alarms = Ros_Controller_GetActiveAlarmCodes(active_alarms);
             if (num_alarms < 0)
             {
-                printf("Error retrieving active alarms: %d", num_alarms);
+                printf("Error retrieving active alarms: %d\n", num_alarms);
             }
-            else
+            else if (num_alarms > 0)
             {
                 g_messages_RobotStatus.msgRobotStatus->error_codes_size = num_alarms;
                 // 'msgRobotStatus->error_codes' has been initialised to be of

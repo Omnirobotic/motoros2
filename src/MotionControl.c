@@ -118,12 +118,12 @@ Init_Trajectory_Status Ros_MotionControl_Init(
         for (checkForDupIndex = (jointIndexInTraj + 1); checkForDupIndex < sequenceGoalJointNames->size;
              checkForDupIndex += 1)
         {
-            if (strncmp(sequenceGoalJointNames[jointIndexInTraj].data,
-                        sequenceGoalJointNames[checkForDupIndex].data,
+            if (strncmp(sequenceGoalJointNames->data[jointIndexInTraj].data,
+                        sequenceGoalJointNames->data[checkForDupIndex].data,
                         MAX_JOINT_NAME_LENGTH) == 0)
             {
                 printf("Joint name [%s] is used for multiple joints in the trajectory (indices: %d and %d).",
-                       sequenceGoalJointNames[jointIndexInTraj].data,
+                       sequenceGoalJointNames->data[jointIndexInTraj].data,
                        jointIndexInTraj,
                        checkForDupIndex);
                 return INIT_TRAJ_DUPLICATE_JOINT_NAME;
@@ -143,7 +143,7 @@ Init_Trajectory_Status Ros_MotionControl_Init(
                 char* jointName = ctrlGroup->jointNames_userDefined[jointIndexInCtrlGroup];
                 if (strlen(jointName) != 0)
                 {
-                    if (strcmp(jointName, sequenceGoalJointNames[jointIndexInTraj].data) == 0)
+                    if (strcmp(jointName, sequenceGoalJointNames->data[jointIndexInTraj].data) == 0)
                     {
                         bFound = TRUE;
                         break;
@@ -158,7 +158,7 @@ Init_Trajectory_Status Ros_MotionControl_Init(
         if (!bFound)
         {
             printf("Joint name [%s] is not valid. Check motoros2_config.yaml and update accordingly.",
-                   sequenceGoalJointNames[jointIndexInTraj].data);
+                   sequenceGoalJointNames->data[jointIndexInTraj].data);
             printf("Valid names:");
             int groupIndex;
             for (groupIndex = 0; groupIndex < MAX_CONTROLLABLE_GROUPS; groupIndex += 1)
@@ -337,11 +337,12 @@ Init_Trajectory_Status Ros_MotionControl_InitPointQueue(QueueTrajPoint* request)
     // for point queuing, we create a single-point trajectory, store the incoming
     // point in it and send it off for processing by the trajectory processing
     // pipeline.
-    JointTrajectoryPointSequence* pointSequence;
+    JointTrajectoryPointSequence pointSequence;
     // COMOLI this going to break
-    pointSequence->data[0] = request->point; // no additional memory is allocated this way
+    pointSequence.size = 1;
+    pointSequence.data[0] = request->point; // no additional memory is allocated this way
 
-    status = Ros_MotionControl_Init(&request->joint_names, pointSequence);
+    status = Ros_MotionControl_Init(&(request->joint_names), &pointSequence);
 
     if (status == INIT_TRAJ_OK)
         Ros_MotionControl_MustInitializePointQueue = FALSE;
@@ -387,36 +388,35 @@ Init_Trajectory_Status Ros_MotionControl_ConvertTrajectoryToJointMotionData(
             }
         }
 
-        // COMOLI never in trajectory mode
         // Last point in the trajectory. This only applies when receiving an entire trajectory through the FJT action.
-        // if (Ros_MotionControl_IsMotionMode_Trajectory() && i == (in_jointTrajData->size - 1))
-        // {
-        //     // verify that the robot is commanded to stop at the end of the trajectory
-        //     if (fabs(in_jointTrajData->data[i].velocities.data[incomingAxisIndex]) >
-        //         EPSILON_TOLERANCE_DOUBLE) // float version of "!=0"
-        //     {
-        //         printf("The final point in a trajectory must specify a target velocity of '0'.");
-        //         return INIT_TRAJ_INVALID_ENDING_VELOCITY;
-        //     }
+        if (Ros_MotionControl_IsMotionMode_Trajectory() && i == (in_jointTrajData->size - 1))
+        {
+            // verify that the robot is commanded to stop at the end of the trajectory
+            if (fabs(in_jointTrajData->data[i].velocities.data[incomingAxisIndex]) >
+                EPSILON_TOLERANCE_DOUBLE) // float version of "!=0"
+            {
+                printf("The final point in a trajectory must specify a target velocity of '0'.");
+                return INIT_TRAJ_INVALID_ENDING_VELOCITY;
+            }
 
-        //     // Acceleration is not used. But we want to ensure the trajectory is well behaved and well shaped.
-        //     // The JointTrajectoryController from ros(2)_control can sometimes behave rather strangely when the
-        //     // last point doesn't have zero vel/acc (probably caused by the spline interpolation doing weird
-        //     // things with non - zero values for velocityand acceleration).
-        //     // ------------------------------------------
-        //     // UPDATE (2023/05/23): It seems that MoveIt doesn't follow this practice. All trajectories from MoveIt have
-        //     // a
-        //     // non-zero acceleration at the end of the trajectory. So we'll remove this check for now.
-        //     // This may be restored in a future update.
-        //     //
-        //     // if ((in_jointTrajData->data[i].accelerations.size > incomingAxisIndex) &&
-        //     //    fabs(in_jointTrajData->data[i].accelerations.data[incomingAxisIndex]) > EPSILON_TOLERANCE_DOUBLE) //
-        //     //    float version of "!=0"
-        //     //{
-        //     //    printf("The final point in a trajectory must specify a target acceleration of '0'.");
-        //     //    return INIT_TRAJ_INVALID_ENDING_ACCELERATION;
-        //     //}
-        // }
+            // Acceleration is not used. But we want to ensure the trajectory is well behaved and well shaped.
+            // The JointTrajectoryController from ros(2)_control can sometimes behave rather strangely when the
+            // last point doesn't have zero vel/acc (probably caused by the spline interpolation doing weird
+            // things with non - zero values for velocityand acceleration).
+            // ------------------------------------------
+            // UPDATE (2023/05/23): It seems that MoveIt doesn't follow this practice. All trajectories from MoveIt have
+            // a
+            // non-zero acceleration at the end of the trajectory. So we'll remove this check for now.
+            // This may be restored in a future update.
+            //
+            // if ((in_jointTrajData->data[i].accelerations.size > incomingAxisIndex) &&
+            //    fabs(in_jointTrajData->data[i].accelerations.data[incomingAxisIndex]) > EPSILON_TOLERANCE_DOUBLE) //
+            //    float version of "!=0"
+            //{
+            //    printf("The final point in a trajectory must specify a target acceleration of '0'.");
+            //    return INIT_TRAJ_INVALID_ENDING_ACCELERATION;
+            //}
+        }
 
         out_jointMotionData[i].pos[ctrlGroupAxisIndex] = in_jointTrajData[i].data->positions.data[incomingAxisIndex];
         out_jointMotionData[i].vel[ctrlGroupAxisIndex] = in_jointTrajData[i].data->velocities.data[incomingAxisIndex];
@@ -675,7 +675,7 @@ void Ros_MotionControl_AddToIncQueueProcess(CtrlGroup* ctrlGroup)
 //-------------------------------------------------------------------
 BOOL Ros_MotionControl_AddPulseIncPointToQ(CtrlGroup* ctrlGroup, Incremental_data const* dataToEnQ)
 {
-    // Set pointer to specified queue
+    // // Set pointer to specified queue
     Incremental_q* q = &ctrlGroup->inc_q;
 
     while (q->cnt >= Q_SIZE) // queue is full
@@ -716,7 +716,7 @@ UINT8 Ros_MotionControl_ProcessQueuedTrajectoryPoint(QueueTrajPoint* request)
 {
     if (Ros_MotionControl_MustInitializePointQueue)
     {
-        printf("Initial point in trajectory queue");
+        printf("Initial point in trajectory queue\n");
 
         Init_Trajectory_Status status;
         status = Ros_MotionControl_InitPointQueue(request);
@@ -736,7 +736,7 @@ UINT8 Ros_MotionControl_ProcessQueuedTrajectoryPoint(QueueTrajPoint* request)
 
     if (g_Ros_Controller.totalAxesCount != request->joint_names.size)
     {
-        printf("Queued point must contain data for all %d joints.", g_Ros_Controller.totalAxesCount);
+        printf("Queued point must contain data for all %d joints.\n", g_Ros_Controller.totalAxesCount);
         return 2;
         // return motoros2_interfaces__msg__QueueResultEnum__INVALID_JOINT_LIST;
     }
@@ -757,6 +757,7 @@ UINT8 Ros_MotionControl_ProcessQueuedTrajectoryPoint(QueueTrajPoint* request)
         {
             // A point is already being processed for this control group.
             // Wait for it to be processed before adding a new point.
+            printf("busy\n");
             return 3;
             // return motoros2_interfaces__msg__QueueResultEnum__BUSY;
         }
@@ -781,7 +782,7 @@ UINT8 Ros_MotionControl_ProcessQueuedTrajectoryPoint(QueueTrajPoint* request)
                 char* jointName = ctrlGroup->jointNames_userDefined[jointIndexInCtrlGroup];
                 if (strlen(jointName) != 0)
                 {
-                    if (strcmp(jointName, request->joint_names.data[jointIndexInTraj]) == 0)
+                    if (strcmp(jointName, request->joint_names.data[jointIndexInTraj].data) == 0)
                     {
                         bFound = TRUE;
                         break;
@@ -795,8 +796,8 @@ UINT8 Ros_MotionControl_ProcessQueuedTrajectoryPoint(QueueTrajPoint* request)
 
         if (!bFound)
         {
-            printf("Joint name [%s] is not valid. Check motoros2_config.yaml and update accordingly.",
-                   request->joint_names.data[jointIndexInTraj]);
+            printf("Joint name [%s] is not valid. Check motoros2_config.yaml and update accordingly.\n",
+                   request->joint_names.data[jointIndexInTraj].data);
             printf("Valid names:");
             int groupIndex;
             for (groupIndex = 0; groupIndex < MAX_CONTROLLABLE_GROUPS; groupIndex += 1)
@@ -1494,7 +1495,7 @@ BOOL Ros_MotionControl_StartMotionMode(MOTION_MODE mode)
     int checkCount;
     int grpNo;
 
-    printf("%s: enter", __func__);
+    printf("%s: enter\n", __func__);
 
     if (Ros_MotionControl_ActiveMotionMode != MOTION_MODE_INACTIVE && Ros_MotionControl_ActiveMotionMode != mode)
     {

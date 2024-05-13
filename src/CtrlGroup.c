@@ -817,7 +817,7 @@ void Ros_CtrlGroup_UpdateJointNamesInMotoOrder(CtrlGroup* ctrlGroup)
                 mpSetAlarm(ALARM_CONFIGURATION_FAIL, errMsg, SUBCODE_CONFIGURATION_INVALID_CUSTOM_JOINT_NAME);
                 motoRosAssert_withMsg(1, SUBCODE_CONFIGURATION_EMPTY_JOINT_NAME, "Empty custom joint name");
             }
-
+            printf("Joint name: %s\n", g_nodeConfigSettings.joint_names[customNameIndex]);
             strncpy(ctrlGroup->jointNames_userDefined[axisIndex],
                     g_nodeConfigSettings.joint_names[customNameIndex],
                     MAX_JOINT_NAME_LENGTH);
