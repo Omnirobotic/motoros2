@@ -200,7 +200,7 @@ CtrlGroup* Ros_CtrlGroup_Create(int groupIndex, BOOL bIsLastGrpToInit, float int
         printf("Creating new task: Add To Inc Q (Group %d)", groupIndex + 1);
 
         ctrlGroup->tidAddToIncQueue = mpCreateTask(
-                MP_PRI_TIME_NORMAL,
+                MP_PRI_TIME_CRITICAL,
                 MP_STACK_SIZE,
                 (FUNCPTR)Ros_MotionControl_AddToIncQueueProcess,
                 (int)ctrlGroup,

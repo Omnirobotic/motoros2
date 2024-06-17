@@ -26,7 +26,7 @@ const char* rosInitJobLines[] =
     "DOUT OT#(890) OFF",
     "DOUT OT#(889) OFF",
 #if defined(YRC1000) || defined(DX200) //DX2 and YRC use two digit precision on the TIMER
-    "TIMER T=0.050",
+    "TIMER T=0.05",
 #elif defined(YRC1000u) || defined(FS100) //FS and YRCu use three digit precision on the TIMER
     "TIMER T=0.050",
 #else
