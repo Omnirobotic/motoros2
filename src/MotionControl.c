@@ -725,7 +725,10 @@ UINT8 Ros_MotionControl_ProcessQueuedTrajectoryPoint(QueueTrajPoint* request)
             return 0;
             // return motoros2_interfaces__msg__QueueResultEnum__SUCCESS;
         else
+        {
+            printf("INIT_FAILURE\n");
             return 1;
+        }
             // return motoros2_interfaces__msg__QueueResultEnum__INIT_FAILURE;
     }
 
@@ -757,7 +760,7 @@ UINT8 Ros_MotionControl_ProcessQueuedTrajectoryPoint(QueueTrajPoint* request)
         {
             // A point is already being processed for this control group.
             // Wait for it to be processed before adding a new point.
-            printf("busy\n");
+            //printf("busy\n");
             return 3;
             // return motoros2_interfaces__msg__QueueResultEnum__BUSY;
         }
@@ -837,7 +840,7 @@ UINT8 Ros_MotionControl_ProcessQueuedTrajectoryPoint(QueueTrajPoint* request)
                 ctrlGroup->trajectoryIterator);
         if (status != INIT_TRAJ_OK)
         {
-            printf("Failed to parse incoming trajectory point.");
+            printf("Failed to parse incoming trajectory point.\n");
             return 5;
             // return motoros2_interfaces__msg__QueueResultEnum__UNABLE_TO_PROCESS_POINT;
         }
