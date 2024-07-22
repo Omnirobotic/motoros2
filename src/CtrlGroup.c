@@ -7,11 +7,11 @@
 #include "CtrlGroup.h"
 
 #include "CmosParameterExtraction.h"
+#include "ConfigFile.h"
 #include "ControllerStatusIO.h"
 #include "ErrorHandling.h"
 #include "MathConstants.h"
 #include "MotionControl.h"
-#include "ConfigFile.h"
 #include "MotoROS_PlatformLib.h"
 
 const char* Ros_CtrlGroup_GRP_ID_String[] = {
@@ -109,7 +109,7 @@ CtrlGroup* Ros_CtrlGroup_Create(int groupIndex, BOOL bIsLastGrpToInit, float int
                 bIsLastGrpToInit, // If activating the reg-speed-feedback feature, delay the alarm until all the groups
                                   // have been processed.
                 &ctrlGroup->speedFeedbackRegisterAddress); //[OUT] Index of the M registers containing the feedback
-                                                           //speed values.
+                                                           // speed values.
         if (status != OK)
         {
             ctrlGroup->speedFeedbackRegisterAddress.bFeedbackSpeedEnabled = FALSE;
@@ -153,9 +153,17 @@ CtrlGroup* Ros_CtrlGroup_Create(int groupIndex, BOOL bIsLastGrpToInit, float int
         for (i = 0; i < MP_GRP_AXES_NUM; i++)
         {
             if (ctrlGroup->axisType.type[i] == AXIS_LINEAR)
-                sprintf(startupMessage, "%s%.4f\t", startupMessage, ctrlGroup->pulseToMeter.PtoM[i]);
+            {
+                char tempBuffer[256]; // Adjust size as needed
+                sprintf(tempBuffer, "%.4f\t", ctrlGroup->pulseToMeter.PtoM[i]);
+                strcat(startupMessage, tempBuffer);
+            }
             else if (ctrlGroup->axisType.type[i] == AXIS_ROTATION)
-                sprintf(startupMessage, "%s%.4f\t", startupMessage, ctrlGroup->pulseToRad.PtoR[i]);
+            {
+                char tempBuffer[256]; // Adjust size as needed
+                sprintf(tempBuffer, "%.4f\t", ctrlGroup->pulseToRad.PtoR[i]);
+                strcat(startupMessage, tempBuffer);
+            }
             else
                 strcat(startupMessage, "--\t");
         }
@@ -256,9 +264,7 @@ MP_GRP_ID_TYPE Ros_mpCtrlGrpNo2GrpId(int groupNo)
     return -1;
 
 #else
-    // COMOLI
-    // #error "Ros_mpCtrlGrpNo2GrpId: unsupported platform"
-
+#error "Ros_mpCtrlGrpNo2GrpId: unsupported platform"
 #endif
 }
 

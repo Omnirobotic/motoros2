@@ -1,4 +1,4 @@
-//FileUtilityFunctions.c
+// FileUtilityFunctions.c
 
 // SPDX-FileCopyrightText: 2022-2023, Yaskawa America, Inc.
 // SPDX-FileCopyrightText: 2022-2023, Delft University of Technology
@@ -6,7 +6,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "FileUtilityFunctions.h"
+
 #include <stdarg.h>
+
 #include "MotoROS_PlatformLib.h"
 
 #define MAX_LINE_LEN 512
@@ -16,21 +18,21 @@ BOOL FileUtilityFunctions_ReadLine(int fd, char* buffer, int len)
     int bytesRead;
     char* mid;
 
-    //read more than one line
+    // read more than one line
     bzero(buffer, len);
     bytesRead = mpRead(fd, buffer, len);
 
     if (bytesRead == -1 || bytesRead == 0)
         return 0;
 
-    //find eol
+    // find eol
     mid = strstr(buffer, "\r\n");
 
-    //eof
+    // eof
     if (mid == NULL)
         return 1;
 
-    //move file pointer back to eol
+    // move file pointer back to eol
     int backup = ((bytesRead - (mid - buffer)) * -1) + 2;
     mpLseek(fd, backup, SEEK_CUR);
 

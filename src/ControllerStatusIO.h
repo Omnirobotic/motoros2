@@ -96,17 +96,6 @@ typedef struct
     int tidIncMoveThread; // ThreadId for sending the incremental move to the controller
 } Controller;
 
-// COMOLI
-// typedef struct
-// {
-//     rcl_publisher_t robotStatus;
-// } ControllerStatus_Publishers;
-// extern ControllerStatus_Publishers g_publishers_RobotStatus;
-
-// typedef struct
-// {
-//     industrial_msgs__msg__RobotStatus* msgRobotStatus;
-// } ControllerStatus_Messages;
 typedef struct
 {
 
@@ -117,7 +106,7 @@ typedef struct
     BOOL motion_possible;
     BOOL in_error;
     int error_codes_size;
-    UINT8 error_codes[MAX_ALARM_COUNT+1];
+    UINT8 error_codes[MAX_ALARM_COUNT + 1];
     INT64 time;
 } RobotStatus;
 typedef struct

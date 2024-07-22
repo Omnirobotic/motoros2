@@ -7,15 +7,16 @@
 
 #include "MotionControl.h"
 
+#include "ConfigFile.h"
 #include "ControllerStatusIO.h"
 #include "CtrlGroup.h"
 #include "ErrorHandling.h"
 #include "MathConstants.h"
-#include "ConfigFile.h"
 
 #define MAX_NUMBER_OF_POINTS_PER_TRAJECTORY 200
 #define MIN_NUMBER_OF_POINTS_PER_TRAJECTORY 2 // current position and destination
 #define SERVICE_NAME_START_POINT_QUEUE_MODE "start_point_queue_mode"
+#define SECONDS_TO_MILLIS                   1000.0f
 
 /// <summary>
 /// For each point in an incoming trajectory, process the data for a SINGLE JOINT.
@@ -152,7 +153,10 @@ Init_Trajectory_Status Ros_MotionControl_Init(
             }
 
             if (bFound)
+            {
+                bGroupIsUsed[grpIndex] = TRUE;
                 break;
+            }
         }
 
         if (!bFound)
@@ -186,7 +190,6 @@ Init_Trajectory_Status Ros_MotionControl_Init(
         if (convertStatus != INIT_TRAJ_OK)
             return convertStatus;
 
-        bGroupIsUsed[grpIndex] = TRUE;
     } // for each joint in a single trajectory point
 
     for (grpIndex = 0; grpIndex < g_Ros_Controller.numGroup; grpIndex += 1)
@@ -195,7 +198,7 @@ Init_Trajectory_Status Ros_MotionControl_Init(
             continue;
 
         CtrlGroup* ctrlGroup = g_Ros_Controller.ctrlGroups[grpIndex];
-        printf("Initializing trajectory for group #%d", ctrlGroup->groupNo);
+        printf("Initializing trajectory for group #%d\n", ctrlGroup->groupNo);
 
         //---------------
         // For MPL80/100 robot type (SLU-BT): Controller automatically moves the B-axis
@@ -314,22 +317,6 @@ Init_Trajectory_Status Ros_MotionControl_Init(
     return INIT_TRAJ_OK;
 }
 
-//-----------------------------------------------------------------------
-// Setup the first point of a trajectory
-//-----------------------------------------------------------------------
-// COMOLI unused
-// Init_Trajectory_Status Ros_MotionControl_InitTrajectory(
-//         control_msgs__action__FollowJointTrajectory_SendGoal_Request* pending_ros_goal_request)
-// {
-//     if (pending_ros_goal_request == NULL ||
-//         pending_ros_goal_request->goal.trajectory.points.size < MIN_NUMBER_OF_POINTS_PER_TRAJECTORY)
-//         return INIT_TRAJ_TOO_SMALL;
-
-//     return Ros_MotionControl_Init(
-//             &pending_ros_goal_request->goal.trajectory.joint_names,
-//             &pending_ros_goal_request->goal.trajectory.points);
-// }
-
 Init_Trajectory_Status Ros_MotionControl_InitPointQueue(QueueTrajPoint* request)
 {
     Init_Trajectory_Status status;
@@ -338,7 +325,6 @@ Init_Trajectory_Status Ros_MotionControl_InitPointQueue(QueueTrajPoint* request)
     // point in it and send it off for processing by the trajectory processing
     // pipeline.
     JointTrajectoryPointSequence pointSequence;
-    // COMOLI this going to break
     pointSequence.size = 1;
     pointSequence.data[0] = request->point; // no additional memory is allocated this way
 
@@ -360,8 +346,7 @@ Init_Trajectory_Status Ros_MotionControl_ConvertTrajectoryToJointMotionData(
     int i;
     for (i = 0; i < in_jointTrajData->size; i += 1) // for each point in trajectory
     {
-        // COMOLI TODO make conversion
-        INT64 millis = 1000.0f*in_jointTrajData[i].data->time_from_start;
+        INT64 millis = SECONDS_TO_MILLIS * in_jointTrajData[i].data->time_from_start;
         if (millis < 0)
         {
             printf("The trajectory [time_from_start] may not be negative (pt: %d).", i);
@@ -383,7 +368,7 @@ Init_Trajectory_Status Ros_MotionControl_ConvertTrajectoryToJointMotionData(
             if (out_jointMotionData[i].time < out_jointMotionData[i - 1].time)
             {
                 printf("Each point in the trajectory must have a [time_from_start] greater than the previous (pt: %d).",
-                        i);
+                       i);
                 return INIT_TRAJ_BACKWARD_TIME;
             }
         }
@@ -723,13 +708,13 @@ UINT8 Ros_MotionControl_ProcessQueuedTrajectoryPoint(QueueTrajPoint* request)
 
         if (status == INIT_TRAJ_OK)
             return 0;
-            // return motoros2_interfaces__msg__QueueResultEnum__SUCCESS;
+        // return motoros2_interfaces__msg__QueueResultEnum__SUCCESS;
         else
         {
             printf("INIT_FAILURE\n");
             return 1;
         }
-            // return motoros2_interfaces__msg__QueueResultEnum__INIT_FAILURE;
+        // return motoros2_interfaces__msg__QueueResultEnum__INIT_FAILURE;
     }
 
     //------------------------------------------------------------
@@ -760,7 +745,7 @@ UINT8 Ros_MotionControl_ProcessQueuedTrajectoryPoint(QueueTrajPoint* request)
         {
             // A point is already being processed for this control group.
             // Wait for it to be processed before adding a new point.
-            //printf("busy\n");
+            // printf("busy\n");
             return 3;
             // return motoros2_interfaces__msg__QueueResultEnum__BUSY;
         }
@@ -824,7 +809,6 @@ UINT8 Ros_MotionControl_ProcessQueuedTrajectoryPoint(QueueTrajPoint* request)
         JointTrajectoryPointSequence pointSequence;
 
         pointSequence.size = 1;
-        // COMOLI this going to break
         pointSequence.data[0] = request->point; // no additional memory is allocated this way
 
         // NOTE: I'm using the SECOND point in the 200 point buffer to hold the converted data. The
@@ -1173,15 +1157,10 @@ void Ros_MotionControl_IncMoveLoopStart() //<-- IP_CLK priority task
             // Make sure motion / goal has not been cancelled in the meantime.
             // Additionally, if the Agent PC is disconnected, check to see if
             // motion should continue.
-            if (!g_Ros_Controller.bStopMotion
-            // COMOLI
-            // && (g_Ros_Communication_AgentIsConnected || !g_nodeConfigSettings.stop_motion_on_disconnect)
-             )
+            if (!g_Ros_Controller.bStopMotion)
             {
                 // Send pulse increment to the controller command position
                 ret = mpExRcsIncrementMove(&moveData);
-                // COMOLI
-                //Ros_ActionServer_FJT_UpdateProgressTracker(&moveData);
             }
             else
                 ret = 0;
@@ -1577,7 +1556,7 @@ BOOL Ros_MotionControl_StartMotionMode(MOTION_MODE mode)
         {
             if (Ros_Controller_DisableEcoMode() == NG)
             {
-                printf("%s: couldn't disable eco mode");
+                printf("couldn't disable eco mode\n");
                 goto updateStatus;
             }
         }
@@ -1604,7 +1583,7 @@ BOOL Ros_MotionControl_StartMotionMode(MOTION_MODE mode)
             }
             if (Ros_Controller_IsServoOn() == FALSE)
             {
-                printf("%s: timed out waiting for servo on");
+                printf("timed out waiting for servo on\n");
                 goto updateStatus;
             }
         }
@@ -1612,7 +1591,7 @@ BOOL Ros_MotionControl_StartMotionMode(MOTION_MODE mode)
         {
             // TODO(gavanderhoorn): should this be reported to user, or are causes
             // covered by errors in MotionNotReadyCode?
-            printf("Can't turn on servo because: '%s' (0x%04X)",
+            printf("Can't turn on servo because: '%s' (0x%04X)\n",
                    Ros_ErrorHandling_ErrNo_ToString(rData.err_no),
                    rData.err_no);
             goto updateStatus;

@@ -93,7 +93,7 @@ typedef struct
     BASE_AXIS_INFO baseTrackInfo;    //
 
     JOINT_FEEDBACK_SPEED_ADDRESSES
-            speedFeedbackRegisterAddress; // CIO address for the registers containing feedback speed
+    speedFeedbackRegisterAddress; // CIO address for the registers containing feedback speed
 
     int tidAddToIncQueue;
 

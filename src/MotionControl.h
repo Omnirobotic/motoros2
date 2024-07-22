@@ -8,8 +8,8 @@
 #ifndef MOTOROS2_MOTION_CONTROL_H
 #define MOTOROS2_MOTION_CONTROL_H
 
-#include "motoPlus.h"
 #include "CtrlGroup.h"
+#include "motoPlus.h"
 
 #define START_MAX_PULSE_DEVIATION 30
 
@@ -24,36 +24,36 @@ typedef enum
     MOTION_MODE_POINTQUEUE
 } MOTION_MODE;
 
-typedef struct 
+typedef struct
 {
     char data[32];
 } JointName;
 
-typedef struct 
+typedef struct
 {
     float data[MAX_PULSE_AXES];
     int size;
 } Positions;
 
-typedef struct 
+typedef struct
 {
     float data[MAX_PULSE_AXES];
     int size;
 } Velocities;
 
-typedef struct 
+typedef struct
 {
     float data[MAX_PULSE_AXES];
     int size;
 } Accelerations;
 
-typedef struct 
+typedef struct
 {
     float data[MAX_PULSE_AXES];
     int size;
 } Effort;
 
-typedef struct 
+typedef struct
 {
     Positions positions;
     Velocities velocities;
@@ -62,7 +62,7 @@ typedef struct
     float time_from_start;
 } JointTrajectoryPoint;
 
-typedef struct 
+typedef struct
 {
     int size;
     JointTrajectoryPoint data[1];
@@ -74,15 +74,12 @@ typedef struct
     int size;
 } JointsName;
 
-typedef struct 
+typedef struct
 {
     JointTrajectoryPoint point;
     JointsName joint_names;
 } QueueTrajPoint;
 
-// COMOLI unused
-// extern Init_Trajectory_Status Ros_MotionControl_InitTrajectory(
-//         control_msgs__action__FollowJointTrajectory_SendGoal_Request* pending_ros_goal_request);
 extern void Ros_MotionControl_IncMoveLoopStart();
 extern void Ros_MotionControl_AddToIncQueueProcess(CtrlGroup* ctrlGroup);
 extern UINT8 Ros_MotionControl_ProcessQueuedTrajectoryPoint(QueueTrajPoint* request);

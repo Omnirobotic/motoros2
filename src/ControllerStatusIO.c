@@ -7,11 +7,11 @@
 
 #include "ControllerStatusIO.h"
 
+#include "CmosParameterExtraction.h"
+#include "ConfigFile.h"
 #include "ErrorHandling.h"
 #include "MotionControl.h"
 #include "motoPlus.h"
-#include "ConfigFile.h"
-#include "CmosParameterExtraction.h"
 
 Controller g_Ros_Controller;
 ControllerStatus_Messages g_messages_RobotStatus;
@@ -44,9 +44,6 @@ BOOL Ros_Controller_Initialize()
     int groupIndex;
     BOOL bInitOk;
     STATUS status;
-
-//     // COMOLI
-//     // MOTOROS2_MEM_TRACE_START(ctrlr_init);
 
     printf("Initializing controller\n");
 
@@ -82,7 +79,6 @@ BOOL Ros_Controller_Initialize()
             g_Ros_Controller.numGroup <= MAX_CONTROLLABLE_GROUPS,
             SUBCODE_FAIL_ROS_CONTROLLER_INIT_TOO_MANY_GROUPS);
 
-    // COMOLI
     BOOL bShouldSetJointNamesToDefaultValues = 1; //(strlen(g_nodeConfigSettings.joint_names[0]) == 0);
 
     //==================================
@@ -111,8 +107,7 @@ BOOL Ros_Controller_Initialize()
                 if (bShouldSetJointNamesToDefaultValues) // joint names were NOT specified in the yaml config file
                 {
                     int jointIndex;
-                    for (jointIndex = 0; jointIndex < g_Ros_Controller.ctrlGroups[groupIndex]->numAxes;
-                         jointIndex += 1)
+                    for (jointIndex = 0; jointIndex < g_Ros_Controller.ctrlGroups[groupIndex]->numAxes; jointIndex += 1)
                     {
                         sprintf(g_nodeConfigSettings.joint_names[(groupIndex * MP_GRP_AXES_NUM) + jointIndex],
                                 DEFAULT_JOINT_NAME_FMT,
@@ -127,67 +122,17 @@ BOOL Ros_Controller_Initialize()
             else
                 bInitOk = FALSE;
 
-            printf("Created ctrl group %d, memfree = (%d) bytes\n", groupIndex, mpNumBytesFree());
+            printf("Created ctrl group %d, memfree = (%zu) bytes\n", groupIndex, mpNumBytesFree());
         }
         else
             g_Ros_Controller.ctrlGroups[groupIndex] = NULL;
     }
 
-    // get the robot calibration data for multi-robot systems
-    const BOOL bCalibLoadedOk = Ros_Controller_LoadGroupCalibrationData(&g_Ros_Controller);
-    // see whether the user should be notified about failures (it's OK to not
-    // have/load any calibration in some cases)
-    // COMOLI
-    // const BOOL bNeedToWarnAboutCalib = Ros_Controller_ShouldWarnNoCalibDataLoaded(
-    //         &g_Ros_Controller,
-    //         bCalibLoadedOk,
-    //         g_nodeConfigSettings.publish_tf);
-    // printf("%s: calib loaded ok: %s, should warn: %s",
-    //        __func__,
-    //        bCalibLoadedOk ? "yes" : "no",
-    //        bNeedToWarnAboutCalib ? "yes" : "no");
-    BOOL bNeedToWarnAboutCalib = 1;
-    if (bNeedToWarnAboutCalib)
-    {
-        // if (g_nodeConfigSettings.ignore_missing_calib_data)
-        if (1)
-        {
-            printf("%s: ignoring absence of calibration data (or load failure) as configured\n", __func__);
-        }
-        else
-        {
-            mpSetAlarm(
-                    ALARM_CONFIGURATION_FAIL,
-                    "No calibration: invalid TF",
-                    SUBCODE_CONFIGURATION_NO_CALIB_FILES_LOADED);
-            printf("%s: no calibration files loaded: TF potentially incorrect, posting warning "
-                   "(disable with 'ignore_missing_calib_data')\n",
-                   __func__);
-        }
-    }
+    printf("%s: ignoring absence of calibration data (or load failure) as configured\n", __func__);
 
 #ifdef DEBUG
     printf("g_Ros_Controller.numRobot = %d", g_Ros_Controller.numRobot);
 #endif
-
-    // //==================================
-    // //create publisher for robot status
-    // const rmw_qos_profile_t* qos_profile = Ros_ConfigFile_To_Rmw_Qos_Profile(g_nodeConfigSettings.qos_robot_status);
-    // rcl_ret_t ret;
-    // ret = rclc_publisher_init(
-    //     &g_publishers_RobotStatus.robotStatus,
-    //     &g_microRosNodeInfo.node,
-    //     ROSIDL_GET_MSG_TYPE_SUPPORT(industrial_msgs, msg, RobotStatus),
-    //     TOPIC_NAME_ROBOT_STATUS,
-    //     qos_profile);
-    // motoRosAssert(ret == RCL_RET_OK, SUBCODE_FAIL_CREATE_PUBLISHER_ROBOT_STATUS);
-
-    // //==================================
-    // //create message for robot status
-    // //TODO(gavanderhoorn): use micro_ros_utilities_create_message_memory(..) instead
-    // g_messages_RobotStatus.msgRobotStatus = industrial_msgs__msg__RobotStatus__create();
-    // rosidl_runtime_c__int32__Sequence__init(&g_messages_RobotStatus.msgRobotStatus->error_codes, MAX_ALARM_COUNT +
-    // 1);
 
     //==================================
     // If not started, start the IncMoveTask (there should be only one instance of this thread)
@@ -251,22 +196,14 @@ BOOL Ros_Controller_Initialize()
         printf("Failure to initialize controller\n");
     }
 
-//     // COMOLI
-//     // MOTOROS2_MEM_TRACE_REPORT(ctrlr_init);
-
     return bInitOk;
 }
 
 void Ros_Controller_Cleanup()
 {
-    // COMOLI
-    // rcl_ret_t ret;
-
-    // MOTOROS2_MEM_TRACE_START(ctrlr_fini);
-
     //--------------------------------
     // Cleanup memory
-    
+
     int groupNum;
     for (groupNum = 0; groupNum < MAX_CONTROLLABLE_GROUPS; groupNum += 1)
     {
@@ -280,16 +217,6 @@ void Ros_Controller_Cleanup()
 
     mpDeleteTask(g_Ros_Controller.tidIncMoveThread);
     g_Ros_Controller.tidIncMoveThread = INVALID_TASK;
-
-    // COMOLI
-    printf("Cleanup publisher robot status");
-    // ret = rcl_publisher_fini(&g_publishers_RobotStatus.robotStatus, &g_microRosNodeInfo.node);
-    // if (ret != RCL_RET_OK)
-    //     printf("Failed cleaning up robot status publisher: %d", ret);
-
-    // industrial_msgs__msg__RobotStatus__destroy(g_messages_RobotStatus.msgRobotStatus);
-
-    // MOTOROS2_MEM_TRACE_REPORT(ctrlr_fini);
 }
 
 //-------------------------------------------------------------------
@@ -321,13 +248,13 @@ void Ros_Controller_StatusInit()
     g_Ros_Controller.ioStatusAddr[IO_ROBOTSTATUS_PLAY].ulAddr = 50054;         // Play
     g_Ros_Controller.ioStatusAddr[IO_ROBOTSTATUS_TEACH].ulAddr = 50053;        // Teach
     g_Ros_Controller.ioStatusAddr[IO_ROBOTSTATUS_REMOTE].ulAddr = 80011;       // 50056;   // Remote  // Modified E.M.
-                                                                         // 7/9/2013
-    g_Ros_Controller.ioStatusAddr[IO_ROBOTSTATUS_OPERATING].ulAddr = 50070;  // Operating
-    g_Ros_Controller.ioStatusAddr[IO_ROBOTSTATUS_HOLD].ulAddr = 50071;       // Hold
-    g_Ros_Controller.ioStatusAddr[IO_ROBOTSTATUS_SERVO].ulAddr = 50073;      // Servo ON
-    g_Ros_Controller.ioStatusAddr[IO_ROBOTSTATUS_ESTOP_EX].ulAddr = 80025;   // External E-Stop
-    g_Ros_Controller.ioStatusAddr[IO_ROBOTSTATUS_ESTOP_PP].ulAddr = 80026;   // Pendant E-Stop
-    g_Ros_Controller.ioStatusAddr[IO_ROBOTSTATUS_ESTOP_CTRL].ulAddr = 80027; // Controller E-Stop
+                                                                               // 7/9/2013
+    g_Ros_Controller.ioStatusAddr[IO_ROBOTSTATUS_OPERATING].ulAddr = 50070;    // Operating
+    g_Ros_Controller.ioStatusAddr[IO_ROBOTSTATUS_HOLD].ulAddr = 50071;         // Hold
+    g_Ros_Controller.ioStatusAddr[IO_ROBOTSTATUS_SERVO].ulAddr = 50073;        // Servo ON
+    g_Ros_Controller.ioStatusAddr[IO_ROBOTSTATUS_ESTOP_EX].ulAddr = 80025;     // External E-Stop
+    g_Ros_Controller.ioStatusAddr[IO_ROBOTSTATUS_ESTOP_PP].ulAddr = 80026;     // Pendant E-Stop
+    g_Ros_Controller.ioStatusAddr[IO_ROBOTSTATUS_ESTOP_CTRL].ulAddr = 80027;   // Controller E-Stop
     g_Ros_Controller.ioStatusAddr[IO_ROBOTSTATUS_WAITING_ROS].ulAddr =
             IO_FEEDBACK_WAITING_MP_INCMOVE; // Job input signaling ready for external motion
     g_Ros_Controller.ioStatusAddr[IO_ROBOTSTATUS_INECOMODE].ulAddr = 50727;     // Energy Saving Mode
@@ -598,15 +525,8 @@ BOOL Ros_Controller_IoStatusUpdate()
     USHORT active_alarms[MAX_ALARM_COUNT + 1] = {0};
     int i;
     BOOL prevReadyStatus;
-    INT64 theTime;
-    // COMOLI
-    // rcl_ret_t ret;
 
     prevReadyStatus = Ros_Controller_IsMotionReady();
-
-    // Timestamp
-    // COMOLI
-    theTime = 0; //rmw_uros_epoch_nanos();
 
     if (Ros_Controller_StatusRead(ioStatus))
     {
@@ -680,29 +600,17 @@ BOOL Ros_Controller_IoStatusUpdate()
 
         if (!prevReadyStatus && Ros_Controller_IsMotionReady())
             printf("Robot job is ready for ROS commands.\n");
-        // COMOLI
-        // Ros_Nanos_To_Time_Msg(theTime, &g_messages_RobotStatus.msgRobotStatus->time);
 
-        g_messages_RobotStatus.msgRobotStatus->drives_powered =
-                (Ros_Controller_IsServoOn() ? 1 : 0);
-        g_messages_RobotStatus.msgRobotStatus->e_stopped =
-                (Ros_Controller_IsEStop() ? 1
-                                          : 0);
-        g_messages_RobotStatus.msgRobotStatus->in_motion =
-                (Ros_Controller_IsInMotion() ? 1
-                                             : 0);
-        g_messages_RobotStatus.msgRobotStatus->mode =
-                (Ros_Controller_IsPlay() ? 1
-                                         : 0);
-        g_messages_RobotStatus.msgRobotStatus->motion_possible =
-                (Ros_Controller_IsMotionReady() ? 1
-                                                : 0);
+        g_messages_RobotStatus.msgRobotStatus->drives_powered = (Ros_Controller_IsServoOn() ? 1 : 0);
+        g_messages_RobotStatus.msgRobotStatus->e_stopped = (Ros_Controller_IsEStop() ? 1 : 0);
+        g_messages_RobotStatus.msgRobotStatus->in_motion = (Ros_Controller_IsInMotion() ? 1 : 0);
+        g_messages_RobotStatus.msgRobotStatus->mode = (Ros_Controller_IsPlay() ? 1 : 0);
+        g_messages_RobotStatus.msgRobotStatus->motion_possible = (Ros_Controller_IsMotionReady() ? 1 : 0);
 
         // we report the controller as being in an error state if there are either
         // active regular alarms or errors, OR an internal MotoROS2-error is active
         BOOL in_error = Ros_Controller_IsAnyFaultActive();
-        g_messages_RobotStatus.msgRobotStatus->in_error =
-                in_error ? 1 : 0;
+        g_messages_RobotStatus.msgRobotStatus->in_error = in_error ? 1 : 0;
 
         // assume there are no active errors
         g_messages_RobotStatus.msgRobotStatus->error_codes_size = 0;
@@ -727,12 +635,6 @@ BOOL Ros_Controller_IoStatusUpdate()
                 }
             }
         }
-
-        // COMOLI
-        // //publish status topic
-        // ret = rcl_publish(&g_publishers_RobotStatus.robotStatus, g_messages_RobotStatus.msgRobotStatus, NULL);
-        // // publishing can fail, but we choose to ignore those errors in this implementation
-        // RCL_UNUSED(ret);
 
         return TRUE;
     }
@@ -836,8 +738,7 @@ static BOOL Ros_Controller_LoadGroupCalibrationData(Controller* const controller
     for (i = 0; i < MAX_ROBOT_CALIBRATION_FILES; i += 1)
     {
         MP_RB_CALIB_DATA calibData;
-        // COMOLI
-        // if (Ros_mpGetRobotCalibrationData(i, &calibData) == OK)
+
         if (mpGetRobotCalibrationData(i, &calibData) == OK)
         {
             printf("%s: file %d loaded OK", __func__, i);

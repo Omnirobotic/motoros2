@@ -7,12 +7,13 @@
 
 #include "ErrorHandling.h"
 
-#include "ControllerStatusIO.h"
 #include <stdarg.h>
+
+#include "ControllerStatusIO.h"
 
 void Ros_Sleep(float milliseconds)
 {
-    mpTaskDelay(milliseconds / mpGetRtc()); //Tick length varies between controller models
+    mpTaskDelay(milliseconds / mpGetRtc()); // Tick length varies between controller models
 }
 
 //-------------------------------------------------------------------
