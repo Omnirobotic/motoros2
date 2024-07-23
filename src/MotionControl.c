@@ -12,11 +12,12 @@
 #include "CtrlGroup.h"
 #include "ErrorHandling.h"
 #include "MathConstants.h"
+#include "mpOmniLogger.h"
+#include "mpOmniUnits.h"
 
 #define MAX_NUMBER_OF_POINTS_PER_TRAJECTORY 200
 #define MIN_NUMBER_OF_POINTS_PER_TRAJECTORY 2 // current position and destination
 #define SERVICE_NAME_START_POINT_QUEUE_MODE "start_point_queue_mode"
-#define SECONDS_TO_MILLIS                   1000.0f
 
 /// <summary>
 /// For each point in an incoming trajectory, process the data for a SINGLE JOINT.
@@ -346,7 +347,7 @@ Init_Trajectory_Status Ros_MotionControl_ConvertTrajectoryToJointMotionData(
     int i;
     for (i = 0; i < in_jointTrajData->size; i += 1) // for each point in trajectory
     {
-        INT64 millis = SECONDS_TO_MILLIS * in_jointTrajData[i].data->time_from_start;
+        INT64 millis = in_jointTrajData[i].data->time_from_start * TO_MILLI;
         if (millis < 0)
         {
             printf("The trajectory [time_from_start] may not be negative (pt: %d).", i);
@@ -433,16 +434,17 @@ void Ros_MotionControl_AddToIncQueueProcess(CtrlGroup* ctrlGroup)
                     continue;
                 }
 
-                printf("Processing next point in trajectory [Group #%d - T=%.3f: (%7.4f, %7.4f, %7.4f, %7.4f, %7.4f, "
-                       "%7.4f)]",
-                       ctrlGroup->groupNo,
-                       (double)ctrlGroup->trajectoryIterator->time * 0.001,
-                       ctrlGroup->trajectoryIterator->pos[0],
-                       ctrlGroup->trajectoryIterator->pos[1],
-                       ctrlGroup->trajectoryIterator->pos[2],
-                       ctrlGroup->trajectoryIterator->pos[3],
-                       ctrlGroup->trajectoryIterator->pos[4],
-                       ctrlGroup->trajectoryIterator->pos[5]);
+                log_debug(
+                        "Processing next point in trajectory [Group #%d - T=%.3f: (%7.4f, %7.4f, %7.4f, %7.4f, %7.4f, "
+                        "%7.4f)]",
+                        ctrlGroup->groupNo,
+                        (double)ctrlGroup->trajectoryIterator->time * 0.001,
+                        ctrlGroup->trajectoryIterator->pos[0],
+                        ctrlGroup->trajectoryIterator->pos[1],
+                        ctrlGroup->trajectoryIterator->pos[2],
+                        ctrlGroup->trajectoryIterator->pos[3],
+                        ctrlGroup->trajectoryIterator->pos[4],
+                        ctrlGroup->trajectoryIterator->pos[5]);
 
                 //-------------------------------------
                 // Check that incoming data is valid
@@ -745,7 +747,6 @@ UINT8 Ros_MotionControl_ProcessQueuedTrajectoryPoint(QueueTrajPoint* request)
         {
             // A point is already being processed for this control group.
             // Wait for it to be processed before adding a new point.
-            // printf("busy\n");
             return 3;
             // return motoros2_interfaces__msg__QueueResultEnum__BUSY;
         }

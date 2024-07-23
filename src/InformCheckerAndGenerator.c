@@ -329,6 +329,7 @@ void Ros_InformChecker_ValidateJob()
     char pathDram[_PARM_PATH_MAX];
     int rv;
     int fdJob;
+    (void)fdJob;
 
     printf("Checking validity of robot job: %s\n", g_nodeConfigSettings.inform_job_name);
 
