@@ -1,43 +1,48 @@
-//FileUtilityFunctions.c
+// FileUtilityFunctions.c
 
 // SPDX-FileCopyrightText: 2022-2023, Yaskawa America, Inc.
 // SPDX-FileCopyrightText: 2022-2023, Delft University of Technology
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "MotoROS.h"
+#include "FileUtilityFunctions.h"
+
+#include <stdarg.h>
+
+#include "MotoROS_PlatformLib.h"
+
+#define MAX_LINE_LEN 512
 
 BOOL FileUtilityFunctions_ReadLine(int fd, char* buffer, int len)
 {
     int bytesRead;
     char* mid;
 
-    //read more than one line
+    // read more than one line
     bzero(buffer, len);
     bytesRead = mpRead(fd, buffer, len);
 
     if (bytesRead == -1 || bytesRead == 0)
-        return false;
+        return 0;
 
-    //find eol
+    // find eol
     mid = strstr(buffer, "\r\n");
 
-    //eof
+    // eof
     if (mid == NULL)
-        return true;
+        return 1;
 
-    //move file pointer back to eol
+    // move file pointer back to eol
     int backup = ((bytesRead - (mid - buffer)) * -1) + 2;
     mpLseek(fd, backup, SEEK_CUR);
 
     *mid = '\0';
 
-    return true;
+    return 0;
 }
 
 BOOL FileUtilityFunctions_WriteLine(int fd, const char* fmt, ...)
 {
-    const int MAX_LINE_LEN = 512;
     va_list va;
     char buffer[MAX_LINE_LEN];
 
@@ -52,7 +57,7 @@ BOOL FileUtilityFunctions_WriteLine(int fd, const char* fmt, ...)
     bytesWrote = mpWrite(fd, buffer, Ros_strnlen(buffer, MAX_LINE_LEN));
 
     if (bytesWrote == -1 || bytesWrote == 0)
-        return false;
+        return 0;
 
-    return true;
+    return 1;
 }

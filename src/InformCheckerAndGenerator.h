@@ -1,4 +1,4 @@
-//InformCheckerAndGenerator.h
+// InformCheckerAndGenerator.h
 
 // SPDX-FileCopyrightText: 2022-2023, Yaskawa America, Inc.
 // SPDX-FileCopyrightText: 2022-2023, Delft University of Technology

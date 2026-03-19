@@ -1,4 +1,4 @@
-//FileUtilityFunctions.h
+// FileUtilityFunctions.h
 
 // SPDX-FileCopyrightText: 2022-2023, Yaskawa America, Inc.
 // SPDX-FileCopyrightText: 2022-2023, Delft University of Technology
@@ -7,6 +7,8 @@
 
 #ifndef MOTOROS2_FILE_UTILITY_FUNCTIONS_H
 #define MOTOROS2_FILE_UTILITY_FUNCTIONS_H
+
+#include "motoPlus.h"
 
 extern BOOL FileUtilityFunctions_ReadLine(int fd, char* buffer, int len);
 extern BOOL FileUtilityFunctions_WriteLine(int fd, const char* fmt, ...);
