@@ -57,8 +57,8 @@ Init_Trajectory_Status Ros_MotionControl_Init(
     {
         if (g_Ros_Controller.ctrlGroups[grpIndex]->hasDataToProcess)
         {
-            printf("Already processing trajectory data - Rejecting new trajectory (Group #%d)",
-                   g_Ros_Controller.ctrlGroups[grpIndex]->groupNo);
+            log_warning("Already processing trajectory data - Rejecting new trajectory (Group #%d)",
+                        g_Ros_Controller.ctrlGroups[grpIndex]->groupNo);
             return INIT_TRAJ_ALREADY_IN_MOTION;
         }
     }
@@ -81,7 +81,7 @@ Init_Trajectory_Status Ros_MotionControl_Init(
 
     if (g_Ros_Controller.totalAxesCount != sequenceGoalJointNames->size)
     {
-        printf("Trajectory must contain data for all %d joints.", g_Ros_Controller.totalAxesCount);
+        log_error("Trajectory must contain data for all %d joints.", g_Ros_Controller.totalAxesCount);
         return INIT_TRAJ_INCOMPLETE_JOINTLIST;
     }
 
@@ -91,14 +91,14 @@ Init_Trajectory_Status Ros_MotionControl_Init(
         // verify that we have positions for each axis
         if (sequenceOfPoints->data[pointIndex].positions.size != g_Ros_Controller.totalAxesCount)
         {
-            printf("Each point in the trajectory must have positions for all axes (pt: %d).", pointIndex);
+            log_error("Each point in the trajectory must have positions for all axes (pt: %d).", pointIndex);
             return INIT_TRAJ_WRONG_NUMBER_OF_POSITIONS;
         }
 
         // verify that we have velocities for each axis
         if (sequenceOfPoints->data[pointIndex].velocities.size != g_Ros_Controller.totalAxesCount)
         {
-            printf("Each point in the trajectory must have velocities for all axes (pt: %d).", pointIndex);
+            log_error("Each point in the trajectory must have velocities for all axes (pt: %d).", pointIndex);
             return INIT_TRAJ_WRONG_NUMBER_OF_VELOCITIES;
         }
     }
@@ -124,10 +124,10 @@ Init_Trajectory_Status Ros_MotionControl_Init(
                         sequenceGoalJointNames->data[checkForDupIndex].data,
                         MAX_JOINT_NAME_LENGTH) == 0)
             {
-                printf("Joint name [%s] is used for multiple joints in the trajectory (indices: %d and %d).",
-                       sequenceGoalJointNames->data[jointIndexInTraj].data,
-                       jointIndexInTraj,
-                       checkForDupIndex);
+                log_error("Joint name [%s] is used for multiple joints in the trajectory (indices: %d and %d).",
+                          sequenceGoalJointNames->data[jointIndexInTraj].data,
+                          jointIndexInTraj,
+                          checkForDupIndex);
                 return INIT_TRAJ_DUPLICATE_JOINT_NAME;
             }
         }
@@ -162,9 +162,9 @@ Init_Trajectory_Status Ros_MotionControl_Init(
 
         if (!bFound)
         {
-            printf("Joint name [%s] is not valid. Check motoros2_config.yaml and update accordingly.",
-                   sequenceGoalJointNames->data[jointIndexInTraj].data);
-            printf("Valid names:");
+            log_error("Joint name [%s] is not valid. Check motoros2_config.yaml and update accordingly.",
+                      sequenceGoalJointNames->data[jointIndexInTraj].data);
+            log_info("Valid names:");
             int groupIndex;
             for (groupIndex = 0; groupIndex < MAX_CONTROLLABLE_GROUPS; groupIndex += 1)
             {
@@ -174,7 +174,7 @@ Init_Trajectory_Status Ros_MotionControl_Init(
                     char* configListEntry =
                             g_nodeConfigSettings.joint_names[(groupIndex * MP_GRP_AXES_NUM) + jointIndex];
                     if (strlen(configListEntry) != 0)
-                        printf(" - %s", configListEntry);
+                        log_info(" - %s", configListEntry);
                 }
             }
 
@@ -199,7 +199,7 @@ Init_Trajectory_Status Ros_MotionControl_Init(
             continue;
 
         CtrlGroup* ctrlGroup = g_Ros_Controller.ctrlGroups[grpIndex];
-        printf("Initializing trajectory for group #%d\n", ctrlGroup->groupNo);
+        log_info("Initializing trajectory for group #%d", ctrlGroup->groupNo);
 
         //---------------
         // For MPL80/100 robot type (SLU-BT): Controller automatically moves the B-axis
@@ -238,34 +238,34 @@ Init_Trajectory_Status Ros_MotionControl_Init(
             // Check if position matches current command position
             if (abs(pulsePos[i] - curPos[i]) > START_MAX_PULSE_DEVIATION)
             {
-                printf("ERROR: Trajectory start position doesn't match current position (MOTO joint order).");
-                printf(" - Requested start: %ld, %ld, %ld, %ld, %ld, %ld, %ld, %ld",
-                       pulsePos[0],
-                       pulsePos[1],
-                       pulsePos[2],
-                       pulsePos[3],
-                       pulsePos[4],
-                       pulsePos[5],
-                       pulsePos[6],
-                       pulsePos[7]);
-                printf(" - Current pos: %ld, %ld, %ld, %ld, %ld, %ld, %ld, %ld",
-                       curPos[0],
-                       curPos[1],
-                       curPos[2],
-                       curPos[3],
-                       curPos[4],
-                       curPos[5],
-                       curPos[6],
-                       curPos[7]);
-                printf(" - ctrlGroup->prevPulsePos: %ld, %ld, %ld, %ld, %ld, %ld, %ld, %ld",
-                       ctrlGroup->prevPulsePos[0],
-                       ctrlGroup->prevPulsePos[1],
-                       ctrlGroup->prevPulsePos[2],
-                       ctrlGroup->prevPulsePos[3],
-                       ctrlGroup->prevPulsePos[4],
-                       ctrlGroup->prevPulsePos[5],
-                       ctrlGroup->prevPulsePos[6],
-                       ctrlGroup->prevPulsePos[7]);
+                log_error("Trajectory start position doesn't match current position (MOTO joint order).");
+                log_error(" - Requested start: %ld, %ld, %ld, %ld, %ld, %ld, %ld, %ld",
+                          pulsePos[0],
+                          pulsePos[1],
+                          pulsePos[2],
+                          pulsePos[3],
+                          pulsePos[4],
+                          pulsePos[5],
+                          pulsePos[6],
+                          pulsePos[7]);
+                log_error(" - Current pos: %ld, %ld, %ld, %ld, %ld, %ld, %ld, %ld",
+                          curPos[0],
+                          curPos[1],
+                          curPos[2],
+                          curPos[3],
+                          curPos[4],
+                          curPos[5],
+                          curPos[6],
+                          curPos[7]);
+                log_error(" - ctrlGroup->prevPulsePos: %ld, %ld, %ld, %ld, %ld, %ld, %ld, %ld",
+                          ctrlGroup->prevPulsePos[0],
+                          ctrlGroup->prevPulsePos[1],
+                          ctrlGroup->prevPulsePos[2],
+                          ctrlGroup->prevPulsePos[3],
+                          ctrlGroup->prevPulsePos[4],
+                          ctrlGroup->prevPulsePos[5],
+                          ctrlGroup->prevPulsePos[6],
+                          ctrlGroup->prevPulsePos[7]);
 
                 for (grpIndex = 0; grpIndex < g_Ros_Controller.numGroup; grpIndex += 1)
                 {
@@ -281,10 +281,10 @@ Init_Trajectory_Status Ros_MotionControl_Init(
             // Check maximum velocity limit
             if (abs(ctrlGroup->prevTrajectoryIterator->vel[i]) > ctrlGroup->maxSpeed[i])
             {
-                printf("ERROR: Command of (%.4f) exceeds the speed limit of (%.4f) for axis %d",
-                       ctrlGroup->prevTrajectoryIterator->vel[i],
-                       ctrlGroup->maxSpeed[i],
-                       i);
+                log_error("Command of (%.4f) exceeds the speed limit of (%.4f) for axis %d",
+                          ctrlGroup->prevTrajectoryIterator->vel[i],
+                          ctrlGroup->maxSpeed[i],
+                          i);
 
                 for (grpIndex = 0; grpIndex < g_Ros_Controller.numGroup; grpIndex += 1)
                 {
@@ -309,7 +309,7 @@ Init_Trajectory_Status Ros_MotionControl_Init(
 
         ctrlGroup->trajectoryIterator = &ctrlGroup->trajectoryToProcess[1];
         ctrlGroup->hasDataToProcess = TRUE;
-        printf("Group #%d - Trajectory is ready for processing", ctrlGroup->groupNo);
+        log_info("Group #%d - Trajectory is ready for processing", ctrlGroup->groupNo);
 
     } // for each group in the controller
 
@@ -350,12 +350,12 @@ Init_Trajectory_Status Ros_MotionControl_ConvertTrajectoryToJointMotionData(
         INT64 millis = in_jointTrajData[i].data->time_from_start * TO_MILLI;
         if (millis < 0)
         {
-            printf("The trajectory [time_from_start] may not be negative (pt: %d).", i);
+            log_error("The trajectory [time_from_start] may not be negative (pt: %d).", i);
             return INIT_TRAJ_INVALID_TIME;
         }
         if (millis == 0 && i != 0) // a time of 0 will cause the accel calculations to fail
         {
-            printf("The trajectory [time_from_start] may only be '0' for the first point in a trajectory (pt: %d).", i);
+            log_error("The trajectory [time_from_start] may only be '0' for the first point in a trajectory (pt: %d).", i);
             return INIT_TRAJ_INVALID_TIME;
         }
         out_jointMotionData[i].time = millis;
@@ -368,8 +368,8 @@ Init_Trajectory_Status Ros_MotionControl_ConvertTrajectoryToJointMotionData(
             // the msg__Duration struct in in_jointTrajData.
             if (out_jointMotionData[i].time < out_jointMotionData[i - 1].time)
             {
-                printf("Each point in the trajectory must have a [time_from_start] greater than the previous (pt: %d).",
-                       i);
+                log_error("Each point in the trajectory must have a [time_from_start] greater than the previous (pt: %d).",
+                          i);
                 return INIT_TRAJ_BACKWARD_TIME;
             }
         }
@@ -381,7 +381,7 @@ Init_Trajectory_Status Ros_MotionControl_ConvertTrajectoryToJointMotionData(
             if (fabs(in_jointTrajData->data[i].velocities.data[incomingAxisIndex]) >
                 EPSILON_TOLERANCE_DOUBLE) // float version of "!=0"
             {
-                printf("The final point in a trajectory must specify a target velocity of '0'.");
+                log_error("The final point in a trajectory must specify a target velocity of '0'.");
                 return INIT_TRAJ_INVALID_ENDING_VELOCITY;
             }
 
@@ -434,18 +434,6 @@ void Ros_MotionControl_AddToIncQueueProcess(CtrlGroup* ctrlGroup)
                     continue;
                 }
 
-                log_debug(
-                        "Processing next point in trajectory [Group #%d - T=%.3f: (%7.4f, %7.4f, %7.4f, %7.4f, %7.4f, "
-                        "%7.4f)]",
-                        ctrlGroup->groupNo,
-                        (double)ctrlGroup->trajectoryIterator->time * 0.001,
-                        ctrlGroup->trajectoryIterator->pos[0],
-                        ctrlGroup->trajectoryIterator->pos[1],
-                        ctrlGroup->trajectoryIterator->pos[2],
-                        ctrlGroup->trajectoryIterator->pos[3],
-                        ctrlGroup->trajectoryIterator->pos[4],
-                        ctrlGroup->trajectoryIterator->pos[5]);
-
                 //-------------------------------------
                 // Check that incoming data is valid
                 for (i = 0; i < ctrlGroup->numAxes; i++)
@@ -454,11 +442,10 @@ void Ros_MotionControl_AddToIncQueueProcess(CtrlGroup* ctrlGroup)
                     if (abs(ctrlGroup->trajectoryIterator->vel[i]) > ctrlGroup->maxSpeed[i])
                     {
                         // excessive speed
-                        printf("ERROR: Invalid speed in message TrajPointFull data: \n  axis: %d, speed: %f, limit: "
-                               "%f\n",
-                               i,
-                               ctrlGroup->trajectoryIterator->vel[i],
-                               ctrlGroup->maxSpeed[i]);
+                        log_error("Invalid speed in message TrajPointFull data: axis: %d, speed: %f, limit: %f",
+                                  i,
+                                  ctrlGroup->trajectoryIterator->vel[i],
+                                  ctrlGroup->maxSpeed[i]);
 
                         bzero(ctrlGroup->trajectoryToProcess, sizeof(ctrlGroup->trajectoryToProcess));
                         ctrlGroup->hasDataToProcess = FALSE;
@@ -520,11 +507,11 @@ void Ros_MotionControl_AddToIncQueueProcess(CtrlGroup* ctrlGroup)
                 }
                 else
                 {
-                    printf("Warning: Group %d - Time difference between endTrajData (%lld) and startTrajData (%lld) is "
-                           "0 or less.\n",
-                           ctrlGroup->groupNo,
-                           endTrajData->time,
-                           startTrajData->time);
+                    log_warning("Group %d - Time difference between endTrajData (%lld) and startTrajData (%lld) is "
+                                "0 or less.",
+                                ctrlGroup->groupNo,
+                                endTrajData->time,
+                                startTrajData->time);
                 }
 
                 // Initialize calculation variable before entering while loop
@@ -608,6 +595,7 @@ void Ros_MotionControl_AddToIncQueueProcess(CtrlGroup* ctrlGroup)
                     // Add the increment to the queue
                     if (!Ros_MotionControl_AddPulseIncPointToQ(ctrlGroup, &incData))
                     {
+                        log_error("Failed to enqueue increment for Group #%d at T=%.3f", ctrlGroup->groupNo, (double)incData.time * 0.001);
                         bzero(ctrlGroup->trajectoryToProcess, sizeof(ctrlGroup->trajectoryToProcess));
                         ctrlGroup->hasDataToProcess = FALSE;
                         continue;
@@ -628,7 +616,7 @@ void Ros_MotionControl_AddToIncQueueProcess(CtrlGroup* ctrlGroup)
                     {
                         bzero(ctrlGroup->trajectoryToProcess, sizeof(ctrlGroup->trajectoryToProcess));
                         ctrlGroup->hasDataToProcess = FALSE;
-                        printf("Done processing final point in trajectory (Group #%d)", ctrlGroup->groupNo);
+                        log_info("Done processing final point in trajectory (Group #%d)", ctrlGroup->groupNo);
                     }
                     else
                     {
@@ -692,7 +680,7 @@ BOOL Ros_MotionControl_AddPulseIncPointToQ(CtrlGroup* ctrlGroup, Incremental_dat
     }
     else
     {
-        printf("ERROR: Unable to add point to queue.  Queue is locked up! (Group #%d)", ctrlGroup->groupNo);
+        log_error("Unable to add point to queue. Queue is locked up! (Group #%d)", ctrlGroup->groupNo);
         return FALSE;
     }
 
@@ -703,7 +691,7 @@ UINT8 Ros_MotionControl_ProcessQueuedTrajectoryPoint(QueueTrajPoint* request)
 {
     if (Ros_MotionControl_MustInitializePointQueue)
     {
-        printf("Initial point in trajectory queue\n");
+        log_info("Initial point in trajectory queue");
 
         Init_Trajectory_Status status;
         status = Ros_MotionControl_InitPointQueue(request);
@@ -713,7 +701,7 @@ UINT8 Ros_MotionControl_ProcessQueuedTrajectoryPoint(QueueTrajPoint* request)
         // return motoros2_interfaces__msg__QueueResultEnum__SUCCESS;
         else
         {
-            printf("INIT_FAILURE\n");
+            log_error("INIT_FAILURE");
             return 1;
         }
         // return motoros2_interfaces__msg__QueueResultEnum__INIT_FAILURE;
@@ -726,7 +714,7 @@ UINT8 Ros_MotionControl_ProcessQueuedTrajectoryPoint(QueueTrajPoint* request)
 
     if (g_Ros_Controller.totalAxesCount != request->joint_names.size)
     {
-        printf("Queued point must contain data for all %d joints.\n", g_Ros_Controller.totalAxesCount);
+        log_error("Queued point must contain data for all %d joints.", g_Ros_Controller.totalAxesCount);
         return 2;
         // return motoros2_interfaces__msg__QueueResultEnum__INVALID_JOINT_LIST;
     }
@@ -785,9 +773,9 @@ UINT8 Ros_MotionControl_ProcessQueuedTrajectoryPoint(QueueTrajPoint* request)
 
         if (!bFound)
         {
-            printf("Joint name [%s] is not valid. Check motoros2_config.yaml and update accordingly.\n",
-                   request->joint_names.data[jointIndexInTraj].data);
-            printf("Valid names:");
+            log_error("Joint name [%s] is not valid. Check motoros2_config.yaml and update accordingly.",
+                      request->joint_names.data[jointIndexInTraj].data);
+            log_info("Valid names:");
             int groupIndex;
             for (groupIndex = 0; groupIndex < MAX_CONTROLLABLE_GROUPS; groupIndex += 1)
             {
@@ -797,7 +785,7 @@ UINT8 Ros_MotionControl_ProcessQueuedTrajectoryPoint(QueueTrajPoint* request)
                     char* configListEntry =
                             g_nodeConfigSettings.joint_names[(groupIndex * MP_GRP_AXES_NUM) + jointIndex];
                     if (strlen(configListEntry) != 0)
-                        printf(" - %s", configListEntry);
+                        log_info(" - %s", configListEntry);
                 }
             }
             return 4;
@@ -825,7 +813,7 @@ UINT8 Ros_MotionControl_ProcessQueuedTrajectoryPoint(QueueTrajPoint* request)
                 ctrlGroup->trajectoryIterator);
         if (status != INIT_TRAJ_OK)
         {
-            printf("Failed to parse incoming trajectory point.\n");
+            log_error("Failed to parse incoming trajectory point.");
             return 5;
             // return motoros2_interfaces__msg__QueueResultEnum__UNABLE_TO_PROCESS_POINT;
         }
@@ -903,7 +891,7 @@ void Ros_MotionControl_IncMoveLoopStart() //<-- IP_CLK priority task
     isMissingPulse = FALSE;
     hasUnprocessedData = FALSE;
 
-    printf("IncMoveTask Started");
+    log_info("IncMoveTask Started");
 
     bzero(&moveData, sizeof(moveData));
 
@@ -1009,8 +997,8 @@ void Ros_MotionControl_IncMoveLoopStart() //<-- IP_CLK priority task
                     }
                     else
                     {
-                        printf("ERROR: Can't get data from queue. Queue is locked up (Group #%d)",
-                               g_Ros_Controller.ctrlGroups[i]->groupNo);
+                        log_error("Can't get data from queue. Queue is locked up (Group #%d)",
+                                  g_Ros_Controller.ctrlGroups[i]->groupNo);
                         bzero(&moveData.grp_pos_info[i].pos, sizeof(LONG) * MP_GRP_AXES_NUM);
                         continue;
                     }
@@ -1120,12 +1108,12 @@ void Ros_MotionControl_IncMoveLoopStart() //<-- IP_CLK priority task
                                 max_inc = g_Ros_Controller.ctrlGroups[i]->maxInc.maxIncrement[axis];
 
                             if (max_inc > 1)
-                                printf("Warning undefined speed: Axis %d Defaulting Max Inc: %d (prevSpeed: %d "
-                                       "curSpeed %d)",
-                                       axis,
-                                       max_inc,
-                                       prevMaxSpeed[i][axis],
-                                       maxSpeed[i][axis]);
+                                log_warning("Undefined speed: Axis %d Defaulting Max Inc: %d (prevSpeed: %d "
+                                            "curSpeed %d)",
+                                            axis,
+                                            max_inc,
+                                            prevMaxSpeed[i][axis],
+                                            maxSpeed[i][axis]);
                         }
 
                         // Set new increment and recalculate unsent pulses
@@ -1173,20 +1161,22 @@ void Ros_MotionControl_IncMoveLoopStart() //<-- IP_CLK priority task
                 Ros_Controller_IoStatusUpdate();
 
                 if (ret == E_EXRCS_CTRL_GRP)
-                    printf("mpExRcsIncrementMove returned: %d (ctrl_grp = %d)", ret, moveData.ctrl_grp);
+                {
+                    log_error("mpExRcsIncrementMove returned: %d (ctrl_grp = %d)", ret, moveData.ctrl_grp);
+                }
                 else if (ret == E_EXRCS_IMOV_UNREADY && g_Ros_Controller.bPFLEnabled)
                 {
                     // Check if this is caused by a known cause (E-Stop, Hold, Alarm, Error)
                     if (!Ros_Controller_IsEStop() && !Ros_Controller_IsHold() && !Ros_Controller_IsAlarm() &&
                         !Ros_Controller_IsError())
                     {
-                        printf("mpExRcsIncrementMove returned UNREADY: %d (Could be PFL Active)", E_EXRCS_IMOV_UNREADY);
+                        log_warning("mpExRcsIncrementMove returned UNREADY: %d (Could be PFL Active)", E_EXRCS_IMOV_UNREADY);
                         g_Ros_Controller.bPFLduringRosMove = TRUE;
                     }
                 }
                 else if (ret == E_EXRCS_PFL_FUNC_BUSY && g_Ros_Controller.bPFLEnabled)
                 {
-                    printf("mpExRcsIncrementMove returned PFL Active");
+                    log_warning("mpExRcsIncrementMove returned PFL Active");
                     g_Ros_Controller.bPFLduringRosMove = TRUE;
                 }
                 else if (ret == E_EXRCS_UNDER_ENERGY_SAVING)
@@ -1202,14 +1192,16 @@ void Ros_MotionControl_IncMoveLoopStart() //<-- IP_CLK priority task
                         Ros_Sleep(MOTION_START_CHECK_PERIOD);
                     }
                     if (g_Ros_Controller.bMpIncMoveError)
-                        printf("mpExRcsIncrementMove returned Eco mode enabled");
+                        log_warning("mpExRcsIncrementMove returned Eco mode enabled");
                 }
                 else if (ret == E_EXRCS_IMOV_UNREADY)
                 {
-                    printf("mpExRcsIncrementMove returned -1 (Not executing WAIT instruction)");
+                    log_warning("mpExRcsIncrementMove returned -1 (Not executing WAIT instruction)");
                 }
                 else
-                    printf("mpExRcsIncrementMove returned: %d", ret);
+                {
+                    log_error("mpExRcsIncrementMove returned: %d", ret);
+                }
 
                 // Stop motion if motion was rejected
                 if (ret != 0)
@@ -1217,7 +1209,7 @@ void Ros_MotionControl_IncMoveLoopStart() //<-- IP_CLK priority task
                     // Flag to prevent further motion until Trajectory mode is reenabled
                     g_Ros_Controller.bMpIncMoveError = TRUE;
                     Ros_MotionControl_StopMotion(/*bKeepJobRunning = */ FALSE);
-                    printf("Stopping all motion");
+                    log_warning("Stopping all motion");
                 }
             }
         }
@@ -1260,7 +1252,7 @@ int Ros_MotionControl_GetQueueCnt(int groupNo)
         return count;
     }
 
-    printf("ERROR: Unable to access queue count.  Queue is locked up! (Group #%d)", groupNo);
+    log_error("Unable to access queue count. Queue is locked up! (Group #%d)", groupNo);
     return ERROR;
 }
 
@@ -1373,12 +1365,12 @@ BOOL Ros_MotionControl_StopMotion(BOOL bKeepJobRunning)
         mpStartJob(&startJobData, &stdRspData);
         if (stdRspData.err_no != 0)
         {
-            printf("WARNING: mpStartJob error: %d", stdRspData.err_no);
+            log_warning("mpStartJob error: %d", stdRspData.err_no);
         }
     }
 
     if (checkCnt >= MOTION_STOP_TIMEOUT)
-        printf("WARNING: Message processing not stopped before clearing queue");
+        log_warning("Message processing not stopped before clearing queue");
 
     return (bStopped && bRet);
 }
@@ -1478,11 +1470,11 @@ BOOL Ros_MotionControl_StartMotionMode(MOTION_MODE mode)
     int checkCount;
     int grpNo;
 
-    printf("%s: enter\n", __func__);
+    log_debug("%s: enter", __func__);
 
     if (Ros_MotionControl_ActiveMotionMode != MOTION_MODE_INACTIVE && Ros_MotionControl_ActiveMotionMode != mode)
     {
-        printf("Another trajectory mode (%d) is already active.", mode);
+        log_warning("Another trajectory mode (%d) is already active.", mode);
         return FALSE;
     }
 
@@ -1492,7 +1484,7 @@ BOOL Ros_MotionControl_StartMotionMode(MOTION_MODE mode)
     // Check if already in the proper mode
     if (Ros_Controller_IsMotionReady())
     {
-        printf("Already active");
+        log_debug("Already active");
         return TRUE;
     }
 
@@ -1500,7 +1492,7 @@ BOOL Ros_MotionControl_StartMotionMode(MOTION_MODE mode)
     // Check for condition that need operator manual intervention
     if (!Ros_Controller_IsRemote())
     {
-        printf("Not remote, can't enable trajectory mode");
+        log_warning("Not remote, can't enable trajectory mode");
         return FALSE;
     }
 #endif
@@ -1508,13 +1500,13 @@ BOOL Ros_MotionControl_StartMotionMode(MOTION_MODE mode)
     // Check if in continous cycle mode
     if (!Ros_Controller_IsContinuousCycle())
     {
-        printf("Continuous cycle mode not set, can't enable trajectory mode");
+        log_warning("Continuous cycle mode not set, can't enable trajectory mode");
         return FALSE;
     }
 
     if (Ros_Controller_IsAnyFaultActive())
     {
-        printf("Controller is in a fault state. Please call /reset_error");
+        log_warning("Controller is in a fault state. Please call /reset_error");
         return FALSE;
     }
 
@@ -1523,7 +1515,7 @@ BOOL Ros_MotionControl_StartMotionMode(MOTION_MODE mode)
     {
         if (!Ros_Controller_MasterTaskIsJobName(g_nodeConfigSettings.inform_job_name))
         {
-            printf("%s: robot is running another job (expected: '%s')", __func__, g_nodeConfigSettings.inform_job_name);
+            log_warning("%s: robot is running another job (expected: '%s')", __func__, g_nodeConfigSettings.inform_job_name);
             goto updateStatus;
         }
         else
@@ -1557,7 +1549,7 @@ BOOL Ros_MotionControl_StartMotionMode(MOTION_MODE mode)
         {
             if (Ros_Controller_DisableEcoMode() == NG)
             {
-                printf("couldn't disable eco mode\n");
+                log_error("couldn't disable eco mode");
                 goto updateStatus;
             }
         }
@@ -1584,7 +1576,7 @@ BOOL Ros_MotionControl_StartMotionMode(MOTION_MODE mode)
             }
             if (Ros_Controller_IsServoOn() == FALSE)
             {
-                printf("timed out waiting for servo on\n");
+                log_error("timed out waiting for servo on");
                 goto updateStatus;
             }
         }
@@ -1592,9 +1584,9 @@ BOOL Ros_MotionControl_StartMotionMode(MOTION_MODE mode)
         {
             // TODO(gavanderhoorn): should this be reported to user, or are causes
             // covered by errors in MotionNotReadyCode?
-            printf("Can't turn on servo because: '%s' (0x%04X)\n",
-                   Ros_ErrorHandling_ErrNo_ToString(rData.err_no),
-                   rData.err_no);
+            log_error("Can't turn on servo because: '%s' (0x%04X)",
+                      Ros_ErrorHandling_ErrNo_ToString(rData.err_no),
+                      rData.err_no);
             goto updateStatus;
         }
     }
@@ -1603,11 +1595,11 @@ BOOL Ros_MotionControl_StartMotionMode(MOTION_MODE mode)
     // make sure that there is no data in the queues
     if (Ros_MotionControl_HasDataInQueue())
     {
-        printf("%s: clearing leftover data in queue", __func__);
+        log_info("%s: clearing leftover data in queue", __func__);
         Ros_MotionControl_ClearQ_All();
 
         if (Ros_MotionControl_HasDataInQueue())
-            printf("%s: WARNING: still data in queue", __func__);
+            log_warning("%s: still data in queue", __func__);
     }
 
     // have to initialize the prevPulsePos that will be used when interpolating the traj
@@ -1630,10 +1622,10 @@ BOOL Ros_MotionControl_StartMotionMode(MOTION_MODE mode)
     if ((ret != 0) || (rData.err_no != 0))
     {
         // TODO(gavanderhoorn): special check for "job is not loaded"
-        printf("Can't start '%s' because: '%s' (0x%04X)",
-               g_nodeConfigSettings.inform_job_name,
-               Ros_ErrorHandling_ErrNo_ToString(rData.err_no),
-               rData.err_no);
+        log_error("Can't start '%s' because: '%s' (0x%04X)",
+                  g_nodeConfigSettings.inform_job_name,
+                  Ros_ErrorHandling_ErrNo_ToString(rData.err_no),
+                  rData.err_no);
         goto updateStatus;
     }
 
@@ -1653,7 +1645,7 @@ updateStatus:
     // Update status
     Ros_Controller_IoStatusUpdate();
 
-    printf("%s: exit", __func__);
+    log_debug("%s: exit", __func__);
 
     // Required to allow motion api to work (Potential race condition)
     Ros_Sleep(200);
@@ -1662,7 +1654,7 @@ updateStatus:
     {
         // set an indicator of which motion mode is now active
         Ros_MotionControl_ActiveMotionMode = mode;
-        printf("Ros_MotionControl_ActiveTrajMode = %d", Ros_MotionControl_ActiveMotionMode);
+        log_info("Ros_MotionControl_ActiveTrajMode = %d", Ros_MotionControl_ActiveMotionMode);
 
         // This indicates that the next incoming point will be the FIRST point in
         // the queue. As such, it will need to go through an initialization routine
@@ -1722,8 +1714,8 @@ void Ros_MotionControl_ValidateMotionModeIsOk()
             // mode again. This allows the system to detect if the robot is not starting back up
             // from the expected location. (System could have been estopped during the trajectory,
             // or the user could have switched to TEACH and moved the arm around.)
-            printf("Stopping point-queue motion mode. Please call '%s' to start a new queue.",
-                   SERVICE_NAME_START_POINT_QUEUE_MODE);
+            log_warning("Stopping point-queue motion mode. Please call '%s' to start a new queue.",
+                        SERVICE_NAME_START_POINT_QUEUE_MODE);
             Ros_MotionControl_StopTrajMode();
         }
 

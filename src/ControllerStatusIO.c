@@ -11,6 +11,7 @@
 #include "ConfigFile.h"
 #include "ErrorHandling.h"
 #include "MotionControl.h"
+#include "mpOmniLogger.h"
 #include "motoPlus.h"
 
 Controller g_Ros_Controller;
@@ -535,7 +536,36 @@ BOOL Ros_Controller_IoStatusUpdate()
         {
             if (g_Ros_Controller.ioStatus[i] != ioStatus[i])
             {
-                // printf("Change of ioStatus[%d]", i);
+                // Log IO status changes
+                const char* io_name = "UNKNOWN";
+                switch (i)
+                {
+                    case IO_ROBOTSTATUS_ALARM_MAJOR: io_name = "ALARM_MAJOR"; break;
+                    case IO_ROBOTSTATUS_ALARM_MINOR: io_name = "ALARM_MINOR"; break;
+                    case IO_ROBOTSTATUS_ALARM_SYSTEM: io_name = "ALARM_SYSTEM"; break;
+                    case IO_ROBOTSTATUS_ALARM_USER: io_name = "ALARM_USER"; break;
+                    case IO_ROBOTSTATUS_ERROR: io_name = "ERROR"; break;
+                    case IO_ROBOTSTATUS_PLAY: io_name = "PLAY"; break;
+                    case IO_ROBOTSTATUS_TEACH: io_name = "TEACH"; break;
+                    case IO_ROBOTSTATUS_REMOTE: io_name = "REMOTE"; break;
+                    case IO_ROBOTSTATUS_OPERATING: io_name = "OPERATING"; break;
+                    case IO_ROBOTSTATUS_HOLD: io_name = "HOLD"; break;
+                    case IO_ROBOTSTATUS_SERVO: io_name = "SERVO"; break;
+                    case IO_ROBOTSTATUS_ESTOP_EX: io_name = "ESTOP_EX"; break;
+                    case IO_ROBOTSTATUS_ESTOP_PP: io_name = "ESTOP_PP"; break;
+                    case IO_ROBOTSTATUS_ESTOP_CTRL: io_name = "ESTOP_CTRL"; break;
+                    case IO_ROBOTSTATUS_WAITING_ROS: io_name = "WAITING_ROS"; break;
+                    case IO_ROBOTSTATUS_INECOMODE: io_name = "INECOMODE"; break;
+                    case IO_ROBOTSTATUS_CONT_CYC_MODE: io_name = "CONT_CYC_MODE"; break;
+#if (YRC1000 || YRC1000u)
+                    case IO_ROBOTSTATUS_PFL_STOP: io_name = "PFL_STOP"; break;
+                    case IO_ROBOTSTATUS_PFL_ESCAPE: io_name = "PFL_ESCAPE"; break;
+                    case IO_ROBOTSTATUS_PFL_AVOIDING: io_name = "PFL_AVOIDING"; break;
+                    case IO_ROBOTSTATUS_PFL_AVOID_JOINT: io_name = "PFL_AVOID_JOINT"; break;
+                    case IO_ROBOTSTATUS_PFL_AVOID_TRANS: io_name = "PFL_AVOID_TRANS"; break;
+#endif
+                }
+                log_debug("[IO_CHANGE] %s: %d -> %d", io_name, g_Ros_Controller.ioStatus[i], ioStatus[i]);
 
                 g_Ros_Controller.ioStatus[i] = ioStatus[i];
                 switch (i)
