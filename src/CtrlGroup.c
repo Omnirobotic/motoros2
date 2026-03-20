@@ -13,6 +13,7 @@
 #include "MathConstants.h"
 #include "MotionControl.h"
 #include "MotoROS_PlatformLib.h"
+#include "mpOmniLogger.h"
 
 const char* Ros_CtrlGroup_GRP_ID_String[] = {
         "r1",  "r2",  "r3",  "r4",  "r5",  "r6",  "r7",  "r8",
@@ -102,6 +103,21 @@ CtrlGroup* Ros_CtrlGroup_Create(int groupIndex, BOOL bIsLastGrpToInit, float int
         if (status != OK)
             bInitOk = FALSE;
 
+        {
+            MP_IO_INFO eStopAddr[3];
+            USHORT eStopState[3];
+            eStopAddr[0].ulAddr = 80025; // External E-Stop
+            eStopAddr[1].ulAddr = 80026; // Pendant E-Stop
+            eStopAddr[2].ulAddr = 80027; // Controller E-Stop
+            if (mpReadIO(eStopAddr, eStopState, 3) == 0 &&
+                (eStopState[0] == 0 || eStopState[1] == 0 || eStopState[2] == 0))
+            {
+                // Known issue: E-Stop is pressed, so the FSU will likely reject the parameter
+                // change below, triggering alarms 8001[10] and M-SAF DATA CRC UNMATCH.
+                // Fix: release the E-Stop, then reboot the controller.
+                log_debug("E-Stop is pressed - Speed Feedback activation may trigger alarms 8001[10] + M-SAF DATA CRC UNMATCH. Release E-Stop and reboot to fix.");
+            }
+        }
         status = GP_getFeedbackSpeedMRegisterAddresses(
                 groupIndex, // zero based index of the control group
                 TRUE, // If the register-speed-feedback is not enabled, automatically modify the SC.PRM file to enable
