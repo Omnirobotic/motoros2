@@ -115,7 +115,7 @@ CtrlGroup* Ros_CtrlGroup_Create(int groupIndex, BOOL bIsLastGrpToInit, float int
                 // Known issue: E-Stop is pressed, so the FSU will likely reject the parameter
                 // change below, triggering alarms 8001[10] and M-SAF DATA CRC UNMATCH.
                 // Fix: release the E-Stop, then reboot the controller.
-                log_debug("E-Stop is pressed - Speed Feedback activation may trigger alarms 8001[10] + M-SAF DATA CRC UNMATCH. Release E-Stop and reboot to fix.");
+                log_error("E-Stop is pressed - Speed Feedback activation may trigger alarms 8001[10] + M-SAF DATA CRC UNMATCH. Release E-Stop and reboot to fix.");
             }
         }
         status = GP_getFeedbackSpeedMRegisterAddresses(
